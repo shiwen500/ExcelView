@@ -1,5 +1,6 @@
 package com.seven.www.example;
 
+import android.graphics.Color;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.ViewGroup;
@@ -46,12 +47,12 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public int getCellWidth(int column) {
-                return 100;
+                return 300;
             }
 
             @Override
             public int getCellHeight(int row) {
-                return 100;
+                return 300;
             }
 
             @Override

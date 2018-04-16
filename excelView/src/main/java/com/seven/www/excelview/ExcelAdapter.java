@@ -113,6 +113,10 @@ public interface ExcelAdapter {
             mCellPosition = position;
         }
 
+        public CellPosition getPosition() {
+            return mCellPosition;
+        }
+
         public Cell(View view, CellPosition position, int mergeWidth, int mergeHeight) {
             mView = view;
             mCellPosition = position;
