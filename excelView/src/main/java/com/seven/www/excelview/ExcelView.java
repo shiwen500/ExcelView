@@ -10,8 +10,10 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.SortedMap;
@@ -360,6 +362,11 @@ public class ExcelView extends ViewGroup{
             addView(cell.getView());
         }
         mAllCells.put(cell.getPosition(), cell);
+
+        mFirstVisibleColumn = Math.min(mFirstVisibleColumn, cell.getColumn());
+        mFirstVisibleRow = Math.min(mFirstVisibleRow, cell.getRow());
+        mLastVisibleColumn = Math.max(mLastVisibleColumn, cell.getColumn());
+        mLastVisibleRow = Math.max(mLastVisibleRow, cell.getRow());
     }
 
     private int getCurrentVisibleRowCount() {
@@ -447,6 +454,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillDown(int x, int y, int nextTop, int nextLeft) {
 
+        Log.d("Seven", " x -> " + x + "  " + y + " " + nextTop + "  " + nextLeft);
+
         int yEnd = getMeasuredHeight(); // ignore padding
         int maxY = mAdapter.getRowCount() - 1;
 
@@ -454,7 +463,6 @@ public class ExcelView extends ViewGroup{
 
             _makeRow(x, y, nextTop, nextLeft);
 
-            mLastVisibleRow = Math.max(mLastVisibleRow, y);
             /*
             if (mReferenceCell != null && !mReferenceCell.isEmpty()) {
                 nextTop += mReferenceCell.getView().getBottom();
@@ -466,18 +474,16 @@ public class ExcelView extends ViewGroup{
         }
     }
 
-    private void _fillUp(int x, int y, int nextBottom, int nextLeft) {
+    private void _fillUp(int x, int y, int lastBottom, int lastLeft) {
 
         int yStart = 0; // ignore padding
         int minY = 0;
 
-        while (y >= minY && nextBottom > yStart) {
+        while (y >= minY && lastBottom > yStart) {
 
-            _makeRow(x, y, nextBottom + mAdapter.getCellHeight(y), nextLeft);
+            _makeRow(x, y, lastBottom + mAdapter.getCellHeight(y), lastLeft);
 
-            mFirstVisibleRow = Math.min(mFirstVisibleRow, y);
-
-            nextBottom -= mAdapter.getCellHeight(y);
+            lastBottom -= mAdapter.getCellHeight(y);
 
             y--;
         }
@@ -576,11 +582,53 @@ public class ExcelView extends ViewGroup{
 
     private void _scrollBy(int dx, int dy) {
 
-        if (dx > 0) {
+        _relayoutChildren(dx, dy);
 
+        if (dy < 0) {
+            _fillDown(mFirstVisibleColumn, mLastVisibleRow+1, getNextTop(), getNextLeft());
+        } else if (dy > 0) {
+//            _fillUp(mFirstVisibleColumn, mLastVisibleRow - 1, );
+        }
+    }
+
+    private int getNextTop() {
+        int row = mLastVisibleRow;
+        int column = mLastVisibleColumn;
+
+        // find last enable cell.
+        ExcelAdapter.Cell cell = null;
+        for (int r = row; r >= 0; --r) {
+            for (int c = column; c >= 0; --c) {
+                cell = getCell(c, r);
+                if (cell != null && !cell.isEmpty()) {
+                    break;
+                }
+            }
         }
 
-        _relayoutChildren(dx, dy);
+        if (cell == null || cell.isEmpty()) {
+            return 0;
+        }
+
+        int nextTop = cell.getView().getTop();
+        for (int i = cell.getRow(); i <= row; ++i) {
+            nextTop += mAdapter.getCellHeight(i);
+        }
+
+        return nextTop;
+    }
+
+    private int getNextLeft() {
+        int row = mFirstVisibleRow;
+        int column = mFirstVisibleColumn;
+
+        ExcelAdapter.Cell cell = getCell(column, row);
+
+        if (cell == null || cell.isEmpty()) {
+            return 0;
+        }
+
+        return cell.getView().getLeft();
     }
 
     private ExcelAdapter.Cell findLeftReferenceCell() {
@@ -619,8 +667,12 @@ public class ExcelView extends ViewGroup{
         for (int i = 0; i < count; ++i) {
             View child = getChildAt(i);
 
+            Log.d(TAG, "before -> " + child.getTop());
+
             child.offsetLeftAndRight(dx);
             child.offsetTopAndBottom(dy);
+
+            Log.d(TAG, "after -> " + child.getTop());
         }
     }
 
