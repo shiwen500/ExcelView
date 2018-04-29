@@ -319,6 +319,8 @@ public class ExcelView extends ViewGroup{
         if (!cell.isEmpty()) {
             removeView(cell.getView());
         }
+
+        Log.d("Seven2", "remove -> " + cell.getPosition());
         mAllCells.remove(cell.getPosition());
     }
 
@@ -754,7 +756,7 @@ public class ExcelView extends ViewGroup{
         int maxY = mAdapter.getRowCount() - 1;
         int bottom = getBottom(y);
         while (y <= maxY && bottom <= 0) {
-            recycleRow(y, true);
+            recycleRow(y);
 
             y++;
             bottom += mAdapter.getCellHeight(y);
@@ -771,7 +773,7 @@ public class ExcelView extends ViewGroup{
 
         while (x <= maxX && right <= 0) {
 
-            recycleColumn(x, true);
+            recycleColumn(x);
 
             x++;
             right += mAdapter.getCellWidth(x);
@@ -788,7 +790,7 @@ public class ExcelView extends ViewGroup{
         int top = getTop(y);
         while (y >= minY && top >= getMeasuredHeight()) {
 
-            recycleRow(y, false);
+            recycleRow(y);
 
             y--;
             top -= mAdapter.getCellHeight(y);
@@ -806,7 +808,7 @@ public class ExcelView extends ViewGroup{
 
         while (x >= minX && left >= getMeasuredWidth()) {
 
-            recycleColumn(x, false);
+            recycleColumn(x);
             x--;
             left -= mAdapter.getCellWidth(x);
         }
@@ -814,56 +816,61 @@ public class ExcelView extends ViewGroup{
         mLastVisibleColumn = x;
     }
 
-    private void recycleRow(int row, boolean inTop) {
+    private void recycleRow(int row) {
         int startColumn = mFirstVisibleColumn;
         int endColumn = mLastVisibleColumn;
 
         for (int c = startColumn; c <= endColumn; ++c) {
-            ExcelAdapter.CellPosition pos = ExcelAdapter.CellPosition.create(c, row);
-            ExcelAdapter.Cell cell = mAllCells.get(pos);
-
-            if (cell == null) {
-                continue;
-            }
-
-            boolean shouldRemove = false;
-
-            if (!cell.isEmpty() && ((inTop &&cell.getView().getBottom() <= 0)
-                || (!inTop && cell.getView().getTop() >= getMeasuredHeight()))) {
-                shouldRemove = true;
-            }
-
-            if (shouldRemove) {
-                removeCell(cell);
-            }
+            removeAndRecycleCell(c, row);
         }
     }
 
-    private void recycleColumn(int column, boolean inLeft) {
+    private void removeAndRecycleCell(int x, int y) {
+        ExcelAdapter.CellPosition pos = ExcelAdapter.CellPosition.create(x, y);
+        ExcelAdapter.Cell cell = mAllCells.get(pos);
 
-        Log.d("Seven2", "recyc " + column + " " + inLeft);
+        if (cell == null) {
+            return;
+        }
+
+        boolean shouldRemove = false;
+
+        if (!cell.isEmpty()) {
+            View cellView = cell.getView();
+            int left = cellView.getLeft();
+            int right = cellView.getRight();
+            int top = cellView.getTop();
+            int bottom = cellView.getBottom();
+
+            if (left >= getMeasuredWidth() ||
+                    right <= 0 ||
+                    top >= getMeasuredHeight() ||
+                    bottom <= 0) {
+                shouldRemove = true;
+            }
+        } else {
+            shouldRemove = true;
+            ExcelAdapter.CellPosition parent = mAdapter.getParentCell(pos);
+
+            removeAndRecycleCell(parent.x, parent.y);
+
+        }
+
+
+        if (shouldRemove) {
+            removeCell(cell);
+        }
+    }
+
+    private void recycleColumn(int column) {
+
+        Log.d("Seven2", "recyc " + column + " ");
 
         int startRow = mFirstVisibleRow;
         int endRow = mLastVisibleRow;
 
         for (int r = startRow; r <= endRow; ++r) {
-            ExcelAdapter.CellPosition pos = ExcelAdapter.CellPosition.create(column, r);
-            ExcelAdapter.Cell cell = mAllCells.get(pos);
-
-            if (cell == null) {
-                continue;
-            }
-
-            boolean shouldRemove = false;
-
-            if (!cell.isEmpty() && ((inLeft && cell.getView().getRight() <= 0)
-                || (!inLeft && cell.getView().getLeft() >= getMeasuredWidth()))) {
-                shouldRemove = true;
-            }
-
-            if (shouldRemove) {
-                removeCell(cell);
-            }
+            removeAndRecycleCell(column, r);
         }
     }
 
