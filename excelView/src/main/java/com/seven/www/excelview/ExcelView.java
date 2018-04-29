@@ -16,6 +16,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -67,64 +69,27 @@ public class ExcelView extends ViewGroup{
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         if (changed) {
-            _fillDown(0, 0, 0, 0);
-            int cellCount = mAllCells.size();
+            init(2, 2);
         }
     }
 
-    private void layoutAllCell() {
+    private void init(int x, int y) {
+        _fillDown(x, y, 0, 0);
 
-        int realLeft = mCellsRect.left - mScrollX;
-        int realTop = mCellsRect.top - mScrollY;
-        int realRight = mCellsRect.right - mScrollX;
-        int realBottom = mCellsRect.bottom - mScrollY;
+        mFirstVisibleRow = y;
+        mFirstVisibleColumn = x;
 
-        layoutCells(realLeft, realTop, realRight, realBottom);
+        int lastVisableX = mFirstVisibleColumn;
+        int maxX = mAdapter.getColumnCount() - 1;
+        int boundWidth = getWidth();
+        int right = mAdapter.getCellWidth(lastVisableX);
 
-    }
-
-    private void layoutCells(int left, int top, int right, int bottom) {
-
-        int rowTop = top;
-        int rowLeft = left;
-
-        for (List<ExcelAdapter.Cell> r : mCells) {
-
-            Log.d(TAG, "layoutCells " + rowTop);
-
-            if (!r.isEmpty()) {
-                Log.d(TAG, "layoutCells r " + rowLeft);
-                for (ExcelAdapter.Cell c : r) {
-
-                    if (!c.isEmpty()) {
-                        int w = getCellWidth(c);
-                        int h = getCellHeight(c);
-
-                        c.getView().layout(rowLeft, rowTop, rowLeft + w, rowTop + h);
-                    }
-
-                    rowLeft += mWidths[c.getColumn()];
-                }
-
-                rowTop += mHeights[r.get(0).getRow()];
-                rowLeft = left;
-            }
+        while (right < boundWidth && lastVisableX < maxX) {
+            lastVisableX++;
+            right += mAdapter.getCellWidth(lastVisableX);
         }
-    }
 
-    private void initAllCell() {
-        mFirstLaunch = true;
-        while (mCellsRect.bottom < getMeasuredHeight()) {
-            addBottom();
-        }
-        mFirstLaunch = false;
-    }
-
-    private void removeAllCell() {
-        int visibleRows = getCurrentVisibleRowCount();
-        for (int i = 0; i < visibleRows; ++i) {
-            removeTop();
-        }
+        mLastVisibleColumn = lastVisableX;
     }
 
     @Override
@@ -357,16 +322,18 @@ public class ExcelView extends ViewGroup{
         mAllCells.remove(cell.getPosition());
     }
 
+    private void removeCell(ExcelAdapter.CellPosition pos) {
+        ExcelAdapter.Cell cell = mAllCells.remove(pos);
+        if (cell != null && !cell.isEmpty()) {
+            removeView(cell.getView());
+        }
+    }
+
     private void addCell(ExcelAdapter.Cell cell) {
         if (!cell.isEmpty()) {
             addView(cell.getView());
         }
         mAllCells.put(cell.getPosition(), cell);
-
-        mFirstVisibleColumn = Math.min(mFirstVisibleColumn, cell.getColumn());
-        mFirstVisibleRow = Math.min(mFirstVisibleRow, cell.getRow());
-        mLastVisibleColumn = Math.max(mLastVisibleColumn, cell.getColumn());
-        mLastVisibleRow = Math.max(mLastVisibleRow, cell.getRow());
     }
 
     private int getCurrentVisibleRowCount() {
@@ -472,21 +439,59 @@ public class ExcelView extends ViewGroup{
 
             y++;
         }
+
+        mLastVisibleRow = y - 1;
     }
 
-    private void _fillUp(int x, int y, int lastBottom, int lastLeft) {
+    private void _fillRight(int x, int y, int top, int left) {
+
+        int xEnd = getMeasuredWidth();
+        int maxX = mAdapter.getColumnCount() - 1;
+
+        while (x <= maxX && left < xEnd) {
+
+            _makeColumn(x, y, top, left);
+
+            left += mAdapter.getCellWidth(x);
+
+            x++;
+        }
+
+        mLastVisibleColumn = x - 1;
+    }
+
+    private void _fillUp(int x, int y, int bottom, int left) {
 
         int yStart = 0; // ignore padding
         int minY = 0;
 
-        while (y >= minY && lastBottom > yStart) {
+        while (y >= minY && bottom > yStart) {
 
-            _makeRow(x, y, lastBottom + mAdapter.getCellHeight(y), lastLeft);
+            _makeRow(x, y, bottom - mAdapter.getCellHeight(y), left);
 
-            lastBottom -= mAdapter.getCellHeight(y);
+            bottom -= mAdapter.getCellHeight(y);
 
             y--;
         }
+
+        mFirstVisibleRow = y + 1;
+    }
+
+    private void _fillLeft(int x, int y, int top, int right) {
+
+        int xStart = 0;
+        int minX = 0;
+
+        while (x >= minX && right > xStart) {
+
+            _makeColumn(x, y, top, right - mAdapter.getCellWidth(x));
+
+            right -= mAdapter.getCellWidth(x);
+
+            --x;
+        }
+
+        mFirstVisibleColumn = x + 1;
     }
 
     private void _makeRow(int startX, int y, int top, int nextLeft) {
@@ -500,6 +505,19 @@ public class ExcelView extends ViewGroup{
 
             nextLeft += mAdapter.getCellWidth(startX);
             startX++;
+        }
+    }
+
+    private void _makeColumn(int x, int startY, int top, int left) {
+        int yEnd = getMeasuredHeight();
+        int maxY = mAdapter.getRowCount() - 1;
+
+        while (startY <= maxY && top < yEnd) {
+
+            _makeAndAddCell(x, startY, left, top);
+
+            top += mAdapter.getCellHeight(startY);
+            startY++;
         }
     }
 
@@ -544,6 +562,29 @@ public class ExcelView extends ViewGroup{
             ret.getView().layout(cellLeft, cellTop,
                 cellLeft + width,
                 cellTop + height);
+        } else {
+
+            ExcelAdapter.CellPosition parent = mAdapter.getParentCell(
+                    ExcelAdapter.CellPosition.create(x, y)
+            );
+
+            if (parent == null) {
+                throw new IllegalStateException("must not null");
+            }
+
+            if (!mAllCells.containsKey(parent)) {
+                int parentLeft = cellLeft;
+                for (int dx = x - 1; dx >= parent.x; --dx) {
+                    parentLeft -= mAdapter.getCellWidth(dx);
+                }
+
+                int parentTop = cellTop;
+                for (int dy = y - 1; dy >= parent.y; --dy) {
+                    parentTop -= mAdapter.getCellHeight(dy);
+                }
+
+                _makeAndAddCell(parent.x, parent.y, parentLeft, parentTop);
+            }
         }
 
         addCell(ret);
@@ -584,73 +625,91 @@ public class ExcelView extends ViewGroup{
 
         _relayoutChildren(dx, dy);
 
+        recycle(dx, dy);
+
         if (dy < 0) {
-            _fillDown(mFirstVisibleColumn, mLastVisibleRow+1, getNextTop(), getNextLeft());
+            _fillDown(mFirstVisibleColumn, mLastVisibleRow+1,
+                    getTop(mLastVisibleRow + 1), getLeft(mFirstVisibleColumn));
         } else if (dy > 0) {
-//            _fillUp(mFirstVisibleColumn, mLastVisibleRow - 1, );
+            _fillUp(mFirstVisibleColumn, mFirstVisibleRow - 1,
+                    getBottom(mFirstVisibleRow - 1), getLeft(mFirstVisibleColumn));
+        }
+
+        if (dx < 0) {
+            _fillRight(mLastVisibleColumn + 1, mFirstVisibleRow,
+                    getTop(mFirstVisibleRow), getLeft(mLastVisibleColumn + 1));
+        } else if (dx > 0) {
+
+            _fillLeft(mFirstVisibleColumn - 1, mFirstVisibleRow,
+                    getTop(mFirstVisibleRow), getRight(mFirstVisibleColumn - 1));
         }
     }
 
-    private int getNextTop() {
-        int row = mLastVisibleRow;
-        int column = mLastVisibleColumn;
-
-        // find last enable cell.
+    private int getLeft(int column) {
         ExcelAdapter.Cell cell = null;
-        for (int r = row; r >= 0; --r) {
-            for (int c = column; c >= 0; --c) {
-                cell = getCell(c, r);
-                if (cell != null && !cell.isEmpty()) {
-                    break;
-                }
+        for (ExcelAdapter.Cell c : mAllCells.values()) {
+            if (!c.isEmpty()) {
+                cell = c;
             }
         }
 
-        if (cell == null || cell.isEmpty()) {
+        if (cell == null) {
             return 0;
         }
 
-        int nextTop = cell.getView().getTop();
-        for (int i = cell.getRow(); i <= row; ++i) {
-            nextTop += mAdapter.getCellHeight(i);
+        if (cell.getColumn() == column) {
+            return cell.getView().getLeft();
+        } else if (cell.getColumn() > column) {
+            int left = cell.getView().getLeft();
+            for (int c = cell.getColumn() - 1; c >= column; --c) {
+                left -= mAdapter.getCellWidth(c);
+            }
+            return left;
+        } else {
+            int left = cell.getView().getLeft();
+            for (int c = cell.getColumn() + 1; c <= column; ++c) {
+                left += mAdapter.getCellWidth(c - 1);
+            }
+            return left;
         }
-
-        return nextTop;
     }
 
-    private int getNextLeft() {
-        int row = mFirstVisibleRow;
-        int column = mFirstVisibleColumn;
+    private int getRight(int column) {
+        return getLeft(column) + mAdapter.getCellWidth(column);
+    }
 
-        ExcelAdapter.Cell cell = getCell(column, row);
+    private int getTop(int row) {
+        ExcelAdapter.Cell cell = null;
+        for (ExcelAdapter.Cell c : mAllCells.values()) {
+            if (!c.isEmpty()) {
+                cell = c;
+            }
+        }
 
-        if (cell == null || cell.isEmpty()) {
+        if (cell == null) {
             return 0;
         }
 
-        return cell.getView().getLeft();
+        if (cell.getRow() == row) {
+            return cell.getView().getTop();
+        } else if (cell.getRow() > row) {
+            int top = cell.getView().getTop();
+            for (int r = cell.getRow() - 1; r >= row; --r) {
+                top -= mAdapter.getCellHeight(r);
+            }
+            return top;
+        } else {
+            int top = cell.getView().getTop();
+            for (int r = cell.getRow() + 1; r <= row; ++r) {
+                top += mAdapter.getCellHeight(r - 1);
+            }
+            return top;
+        }
     }
 
-    private ExcelAdapter.Cell findLeftReferenceCell() {
-        int columnCount = mAdapter.getColumnCount();
-        int columnIndex = 0;
-        ExcelAdapter.Cell cell = getCell(columnIndex, 0);
-
-        while ((cell == null || cell.isEmpty()) && columnIndex < columnCount - 1) {
-            cell = getCell(++columnIndex, 0);
-        }
-        return cell;
-    }
-
-    private ExcelAdapter.Cell findRightReferenceCell() {
-        int columnIndex = mAdapter.getColumnCount() - 1;
-        ExcelAdapter.Cell cell = getCell(columnIndex, 0);
-
-        while ((cell == null || cell.isEmpty()) && columnIndex > 0) {
-            cell = getCell(--columnIndex, 0);
-        }
-
-        return cell;
+    private int getBottom(int row) {
+        int top = getTop(row);
+        return top + mAdapter.getCellHeight(row);
     }
 
     private ExcelAdapter.Cell getCell(int x, int y) {
@@ -667,12 +726,144 @@ public class ExcelView extends ViewGroup{
         for (int i = 0; i < count; ++i) {
             View child = getChildAt(i);
 
-            Log.d(TAG, "before -> " + child.getTop());
 
             child.offsetLeftAndRight(dx);
             child.offsetTopAndBottom(dy);
 
-            Log.d(TAG, "after -> " + child.getTop());
+        }
+    }
+
+    private void recycle(int dx, int dy) {
+
+        if (dx > 0) {
+            recycleRight();
+        } else if (dx < 0) {
+            recycleLeft();
+        }
+
+        if (dy > 0) {
+            recycleBottom();
+        } else if (dy < 0) {
+            recycleTop();
+        }
+    }
+
+    private void recycleTop() {
+
+        int y = mFirstVisibleRow;
+        int maxY = mAdapter.getRowCount() - 1;
+        int bottom = getBottom(y);
+        while (y <= maxY && bottom <= 0) {
+            recycleRow(y, true);
+
+            y++;
+            bottom += mAdapter.getCellHeight(y);
+        }
+
+        mFirstVisibleRow = y;
+    }
+
+    private void recycleLeft() {
+
+        int x = mFirstVisibleColumn;
+        int maxX = mAdapter.getColumnCount() - 1;
+        int right = getRight(x);
+
+        while (x <= maxX && right <= 0) {
+
+            recycleColumn(x, true);
+
+            x++;
+            right += mAdapter.getCellWidth(x);
+        }
+
+        mFirstVisibleColumn = x;
+    }
+
+    private void recycleBottom() {
+
+        int y = mLastVisibleRow;
+        int minY = 0;
+
+        int top = getTop(y);
+        while (y >= minY && top >= getMeasuredHeight()) {
+
+            recycleRow(y, false);
+
+            y--;
+            top -= mAdapter.getCellHeight(y);
+        }
+
+        mLastVisibleRow = y;
+    }
+
+    private void recycleRight() {
+
+        int x = mLastVisibleColumn;
+        int minX = 0;
+
+        int left = getLeft(x);
+
+        while (x >= minX && left >= getMeasuredWidth()) {
+
+            recycleColumn(x, false);
+            x--;
+            left -= mAdapter.getCellWidth(x);
+        }
+
+        mLastVisibleColumn = x;
+    }
+
+    private void recycleRow(int row, boolean inTop) {
+        int startColumn = mFirstVisibleColumn;
+        int endColumn = mLastVisibleColumn;
+
+        for (int c = startColumn; c <= endColumn; ++c) {
+            ExcelAdapter.CellPosition pos = ExcelAdapter.CellPosition.create(c, row);
+            ExcelAdapter.Cell cell = mAllCells.get(pos);
+
+            if (cell == null) {
+                continue;
+            }
+
+            boolean shouldRemove = false;
+
+            if (!cell.isEmpty() && ((inTop &&cell.getView().getBottom() <= 0)
+                || (!inTop && cell.getView().getTop() >= getMeasuredHeight()))) {
+                shouldRemove = true;
+            }
+
+            if (shouldRemove) {
+                removeCell(cell);
+            }
+        }
+    }
+
+    private void recycleColumn(int column, boolean inLeft) {
+
+        Log.d("Seven2", "recyc " + column + " " + inLeft);
+
+        int startRow = mFirstVisibleRow;
+        int endRow = mLastVisibleRow;
+
+        for (int r = startRow; r <= endRow; ++r) {
+            ExcelAdapter.CellPosition pos = ExcelAdapter.CellPosition.create(column, r);
+            ExcelAdapter.Cell cell = mAllCells.get(pos);
+
+            if (cell == null) {
+                continue;
+            }
+
+            boolean shouldRemove = false;
+
+            if (!cell.isEmpty() && ((inLeft && cell.getView().getRight() <= 0)
+                || (!inLeft && cell.getView().getLeft() >= getMeasuredWidth()))) {
+                shouldRemove = true;
+            }
+
+            if (shouldRemove) {
+                removeCell(cell);
+            }
         }
     }
 

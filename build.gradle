@@ -3,11 +3,11 @@
 buildscript {
 
     repositories {
-//        google()
-//        jcenter()
-        maven {
-            url 'http://source.tp-link.net:8081/nexus/content/groups/public/'
-        }
+        google()
+        jcenter()
+//        maven {
+//            url 'http://source.tp-link.net:8081/nexus/content/groups/public/'
+//        }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.0.1'
@@ -21,10 +21,10 @@ buildscript {
 allprojects {
     repositories {
         google()
-//        jcenter()
-        maven {
-            url 'http://source.tp-link.net:8081/nexus/content/groups/public/'
-        }
+        jcenter()
+//        maven {
+//            url 'http://source.tp-link.net:8081/nexus/content/groups/public/'
+//        }
     }
 }
 

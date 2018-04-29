@@ -11,6 +11,8 @@ import com.seven.www.excelview.ExcelView;
 
 public class MainActivity extends AppCompatActivity {
 
+    private int[] colors = {Color.BLACK, Color.RED, Color.BLUE, Color.GREEN};
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -32,9 +34,12 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public int getCellType(CellPosition position) {
-                if (position.x == 0 && position.y == 0) {
+                if (position.x == 0 && position.y == 0 ||
+                        position.x == 2 && position.y == 2) {
                     return 0;
-                } else if (position.x <= 1 && position.y <= 1) {
+                } else if (position.x <= 1 && position.y <= 1 ||
+                        (position.x >= 2 && position.x <= 3
+                        && position.y >= 2 && position.y <= 3)) {
                     return ExcelAdapter.CELL_TYPE_EMPTY;
                 }
                 return 1;
@@ -71,9 +76,23 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public CellPosition getParentCell(CellPosition position) {
+                if (position.x <= 1 || position.y <= 1) {
+                    return CellPosition.create(0, 0);
+                } else if (position.x <= 1 && position.y <= 1 ||
+                        (position.x >= 2 && position.x <= 3
+                                && position.y >= 2 && position.y <= 3)) {
+                    return CellPosition.create(2, 2);
+                }
+                return null;
+            }
+
+            @Override
             public void onBindCell(Cell cell, CellPosition cellPosition) {
                 TextView t = (TextView) cell.getView();
                 t.setText(cellPosition.y + " " + cellPosition.x);
+
+                t.setBackgroundColor(colors[(cellPosition.y + cellPosition.x) % colors.length]);
             }
         });
     }

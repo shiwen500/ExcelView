@@ -56,6 +56,10 @@ public interface ExcelAdapter {
 
     Cell onCreateCell(ViewGroup parent, int cellType);
     void onBindCell(Cell cell, CellPosition cellPosition);
+
+
+    CellPosition getParentCell(CellPosition position);
+
     class CellPosition extends Point {
         public static CellPosition create(int x, int y) {
             CellPosition pos = new CellPosition();
