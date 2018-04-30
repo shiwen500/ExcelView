@@ -3,11 +3,16 @@ package com.seven.www.excelview;
 import android.content.Context;
 import android.graphics.Rect;
 import android.support.v4.util.ArrayMap;
+import android.support.v4.view.VelocityTrackerCompat;
+import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.widget.Scroller;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,18 +56,29 @@ public class ExcelView extends ViewGroup{
     private int mFirstVisibleColumn;
     private int mLastVisibleColumn;
 
-    private boolean mFirstLaunch;
+    private FlingRunnable mFlingRunnable;
+    private VelocityTracker mVelocityTracker;
+
+    private int mMaxVelocity;
+    private int mMinVelocity;
+
 
     public ExcelView(Context context) {
-        super(context);
+        this(context, null);
     }
 
     public ExcelView(Context context, AttributeSet attrs) {
-        super(context, attrs);
+        this(context, attrs, 0);
     }
 
     public ExcelView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+
+        ViewConfiguration viewConfiguration = ViewConfiguration.get(context);
+        mMaxVelocity = viewConfiguration.getScaledMaximumFlingVelocity();
+        mMinVelocity = viewConfiguration.getScaledMinimumFlingVelocity();
+
+        mFlingRunnable = new FlingRunnable(getContext());
     }
 
 
@@ -239,9 +255,7 @@ public class ExcelView extends ViewGroup{
         mCells.add(internalRowIndex, r);
 
         int colCount = getCurrentVisibleColumnCount();
-        if (mFirstLaunch) {
-            colCount = getMaxVisibleColumnCount();
-        }
+
         for (int i = 0; i < colCount; ++i) {
 
             ExcelAdapter.Cell cell = makeAndAddCell(row, column);
@@ -601,10 +615,17 @@ public class ExcelView extends ViewGroup{
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+
+        if (mVelocityTracker == null) {
+            mVelocityTracker = VelocityTracker.obtain();
+        }
+        mVelocityTracker.addMovement(event);
+
         final int action = event.getAction();
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
+                mFlingRunnable.stop();
                 break;
 
             case MotionEvent.ACTION_MOVE:
@@ -614,6 +635,20 @@ public class ExcelView extends ViewGroup{
                 break;
 
             case MotionEvent.ACTION_UP:
+
+                mVelocityTracker.computeCurrentVelocity(1000, mMaxVelocity);
+
+                int velocityX = (int) mVelocityTracker.getXVelocity();
+                int velocityY = (int) mVelocityTracker.getYVelocity();
+
+                if (Math.abs(velocityX) > mMinVelocity || Math.abs(velocityY) > mMinVelocity) {
+                    mFlingRunnable.start(velocityX, velocityY);
+                } else {
+                    if (mVelocityTracker != null) {
+                        mVelocityTracker.recycle();
+                        mVelocityTracker = null;
+                    }
+                }
                 break;
         }
 
@@ -624,6 +659,9 @@ public class ExcelView extends ViewGroup{
     }
 
     private void _scrollBy(int dx, int dy) {
+
+        dx = attemptScrollX(dx);
+        dy = attemptScrollY(dy);
 
         _relayoutChildren(dx, dy);
 
@@ -645,6 +683,82 @@ public class ExcelView extends ViewGroup{
             _fillLeft(mFirstVisibleColumn - 1, mFirstVisibleRow,
                     getTop(mFirstVisibleRow), getRight(mFirstVisibleColumn - 1));
         }
+    }
+
+    private int attemptScrollX(int dx) {
+        if (dx < 0) {
+            int right = getRight(mLastVisibleColumn);
+
+            int targetLastVisibleColumn = mLastVisibleColumn;
+            final int maxColumn = mAdapter.getColumnCount() - 1;
+
+            int targetRight = right + dx;
+
+            while (targetRight < getMeasuredWidth() && targetLastVisibleColumn < maxColumn) {
+                targetLastVisibleColumn++;
+                targetRight += mAdapter.getCellWidth(targetLastVisibleColumn);
+            }
+
+            if (targetRight >= getMeasuredWidth()) {
+                return dx;
+            } else {
+                return dx + (getMeasuredWidth() - targetRight);
+            }
+        } else if (dx > 0) {
+
+            int left = getLeft(mFirstVisibleColumn);
+            int targetFirstVisibleColumn = mFirstVisibleColumn;
+            final int minColumn = 0;
+
+            int targetLeft = left + dx;
+
+            while (targetLeft > 0 && targetFirstVisibleColumn > minColumn) {
+                targetFirstVisibleColumn--;
+
+                targetLeft -= mAdapter.getCellWidth(targetFirstVisibleColumn);
+            }
+
+            if (targetLeft <= 0) {
+                return dx;
+            } else {
+                return dx - targetLeft;
+            }
+        }
+
+        return dx;
+    }
+
+    private int attemptScrollY(int dy) {
+        if (dy < 0) {
+            int bottom = getBottom(mLastVisibleRow);
+            int targetLastVisibleRow = mLastVisibleRow;
+            final int maxRow = mAdapter.getRowCount() - 1;
+            int targetBottom = bottom + dy;
+            while (targetBottom < getMeasuredHeight() && targetLastVisibleRow < maxRow) {
+                targetLastVisibleRow++;
+                targetBottom += mAdapter.getCellHeight(targetLastVisibleRow);
+            }
+            if (targetBottom >= getMeasuredHeight()) {
+                return dy;
+            } else {
+                return dy + (getMeasuredHeight() - targetBottom);
+            }
+        } else if (dy > 0) {
+            int top = getTop(mFirstVisibleRow);
+            int targetFirstVisibleRow = mFirstVisibleRow;
+            final int minRow = 0;
+            int targetTop = top + dy;
+            while (targetTop > 0 && targetFirstVisibleRow > minRow) {
+                targetFirstVisibleRow--;
+                targetTop -= mAdapter.getCellHeight(targetFirstVisibleRow);
+            }
+            if (targetTop <= 0) {
+                return dy;
+            } else {
+                return dy - targetTop;
+            }
+        }
+        return dy;
     }
 
     private int getLeft(int column) {
@@ -881,5 +995,52 @@ public class ExcelView extends ViewGroup{
             return Math.min(currentVal + deltaVal, maxVal) - currentVal;
         }
         return deltaVal;
+    }
+
+    private class FlingRunnable implements Runnable {
+
+        private Scroller mScroller;
+        private int mLastScrollX;
+        private int mLastScrollY;
+
+        private FlingRunnable(Context context) {
+            mScroller = new Scroller(context);
+        }
+
+        @Override
+        public void run() {
+            if (mScroller.isFinished()) {
+                return;
+            }
+
+            if (mScroller.computeScrollOffset()) {
+                int curX = mScroller.getCurrX();
+                int curY = mScroller.getCurrY();
+
+                int dx = curX - mLastScrollX;
+                int dy = curY - mLastScrollY;
+
+                _scrollBy(dx, dy);
+
+                mLastScrollX = curX;
+                mLastScrollY = curY;
+                ViewCompat.postOnAnimation(ExcelView.this, this);
+            }
+        }
+
+        private void start(int velocityX, int velocityY) {
+            mScroller.fling(0, 0, velocityX, velocityY,
+                    Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            mLastScrollY = 0;
+            mLastScrollX = 0;
+
+            ViewCompat.postOnAnimation(ExcelView.this, this);
+        }
+
+        private void stop() {
+            if (!mScroller.isFinished()) {
+                mScroller.forceFinished(true);
+            }
+        }
     }
 }
