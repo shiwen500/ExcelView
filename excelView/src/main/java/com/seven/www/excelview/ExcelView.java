@@ -85,7 +85,7 @@ public class ExcelView extends ViewGroup{
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         if (changed) {
-            init(2, 2);
+            init(0, 0);
         }
     }
 
@@ -164,7 +164,7 @@ public class ExcelView extends ViewGroup{
 
     private ExcelAdapter.Cell makeAndAddCell(int row, int column) {
 
-        ExcelAdapter.CellPosition position = ExcelAdapter.CellPosition.create(column, row);
+        int position = ExcelAdapter.CellPosition.create(column, row);
         int cellType = mAdapter.getCellType(position);
         ExcelAdapter.Cell ret = mCellRecycler.getRecycledCell(cellType);
         if (ret == null) {
@@ -325,7 +325,7 @@ public class ExcelView extends ViewGroup{
     }
 
     private int getCellType(int row, int column) {
-        ExcelAdapter.CellPosition position = ExcelAdapter.CellPosition.create(column, row);
+        int position = ExcelAdapter.CellPosition.create(column, row);
         return mAdapter.getCellType(position);
     }
 
@@ -335,7 +335,8 @@ public class ExcelView extends ViewGroup{
         }
 
         Log.d("Seven2", "remove -> " + cell.getPosition());
-        mAllCells.remove(cell.getPosition());
+        ExcelAdapter.Cell recycle = mAllCells.remove(cell.getPosition());
+        mCellRecycler.addRecycledCell(recycle, mAdapter.getCellType(cell.getPosition()));
     }
 
     private void removeCell(ExcelAdapter.CellPosition pos) {
@@ -412,19 +413,26 @@ public class ExcelView extends ViewGroup{
 
     /*******************************/
 
-    private SortedMap<ExcelAdapter.CellPosition, ExcelAdapter.Cell>
-        mAllCells = new TreeMap<>(new Comparator<ExcelAdapter.CellPosition>() {
+    private SortedMap<Integer, ExcelAdapter.Cell>
+        mAllCells = new TreeMap<>(new Comparator<Integer>() {
         @Override
-        public int compare(ExcelAdapter.CellPosition o1, ExcelAdapter.CellPosition o2) {
-            if (o1.y > o2.y) {
+        public int compare(Integer o1, Integer o2) {
+
+            int y1 = ExcelAdapter.CellPosition.getY(o1);
+            int y2 = ExcelAdapter.CellPosition.getY(o2);
+
+            if (y1 > y2) {
                 return 1;
-            } else if (o1.y < o2.y) {
+            } else if (y1 < y2) {
                 return -1;
             }
 
-            if (o1.x > o2.x) {
+            int x1 = ExcelAdapter.CellPosition.getX(o1);
+            int x2 = ExcelAdapter.CellPosition.getX(o2);
+
+            if (x1 > x2) {
                 return 1;
-            } else if (o1.x < o2.x) {
+            } else if (x1 < x2) {
                 return -1;
             }
 
@@ -541,7 +549,7 @@ public class ExcelView extends ViewGroup{
 
         Log.d(TAG, String.format("x = %d y = %d left = %d top = %d", x, y, cellLeft, cellTop));
 
-        ExcelAdapter.CellPosition position = ExcelAdapter.CellPosition.create(x, y);
+        int position = ExcelAdapter.CellPosition.create(x, y);
 
         ExcelAdapter.Cell active = mAllCells.get(position);
         if (active != null) {
@@ -580,26 +588,29 @@ public class ExcelView extends ViewGroup{
                 cellTop + height);
         } else {
 
-            ExcelAdapter.CellPosition parent = mAdapter.getParentCell(
+            int parent = mAdapter.getParentCell(
                     ExcelAdapter.CellPosition.create(x, y)
             );
 
-            if (parent == null) {
+            int parentX = ExcelAdapter.CellPosition.getX(parent);
+            int parentY = ExcelAdapter.CellPosition.getY(parent);
+
+            if (parent == -1) {
                 throw new IllegalStateException("must not null");
             }
 
             if (!mAllCells.containsKey(parent)) {
                 int parentLeft = cellLeft;
-                for (int dx = x - 1; dx >= parent.x; --dx) {
+                for (int dx = x - 1; dx >= parentX; --dx) {
                     parentLeft -= mAdapter.getCellWidth(dx);
                 }
 
                 int parentTop = cellTop;
-                for (int dy = y - 1; dy >= parent.y; --dy) {
+                for (int dy = y - 1; dy >= parentY; --dy) {
                     parentTop -= mAdapter.getCellHeight(dy);
                 }
 
-                _makeAndAddCell(parent.x, parent.y, parentLeft, parentTop);
+                _makeAndAddCell(parentX, parentY, parentLeft, parentTop);
             }
         }
 
@@ -832,7 +843,7 @@ public class ExcelView extends ViewGroup{
         if (mAdapter.getRowCount() == 0 || mAdapter.getColumnCount() == 0) {
             return null;
         }
-        ExcelAdapter.CellPosition cellPosition = ExcelAdapter.CellPosition.create(x, y);
+        int cellPosition = ExcelAdapter.CellPosition.create(x, y);
         return mAllCells.get(cellPosition);
     }
 
@@ -940,7 +951,7 @@ public class ExcelView extends ViewGroup{
     }
 
     private void removeAndRecycleCell(int x, int y) {
-        ExcelAdapter.CellPosition pos = ExcelAdapter.CellPosition.create(x, y);
+        int pos = ExcelAdapter.CellPosition.create(x, y);
         ExcelAdapter.Cell cell = mAllCells.get(pos);
 
         if (cell == null) {
@@ -964,9 +975,10 @@ public class ExcelView extends ViewGroup{
             }
         } else {
             shouldRemove = true;
-            ExcelAdapter.CellPosition parent = mAdapter.getParentCell(pos);
+            int parent = mAdapter.getParentCell(pos);
 
-            removeAndRecycleCell(parent.x, parent.y);
+            removeAndRecycleCell(ExcelAdapter.CellPosition.getX(parent),
+                ExcelAdapter.CellPosition.getY(parent));
 
         }
 

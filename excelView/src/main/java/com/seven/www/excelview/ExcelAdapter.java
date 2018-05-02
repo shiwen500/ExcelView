@@ -41,7 +41,7 @@ public interface ExcelAdapter {
      * @param position cell's position
      * @return cell's type
      */
-    int getCellType(CellPosition position);
+    int getCellType(int position);
 
     /**
      * The count of cell type.
@@ -55,17 +55,27 @@ public interface ExcelAdapter {
     int getCellHeight(int row);
 
     Cell onCreateCell(ViewGroup parent, int cellType);
-    void onBindCell(Cell cell, CellPosition cellPosition);
+    void onBindCell(Cell cell, int cellPosition);
 
 
-    CellPosition getParentCell(CellPosition position);
+    int getParentCell(int position);
 
-    class CellPosition extends Point {
-        public static CellPosition create(int x, int y) {
-            CellPosition pos = new CellPosition();
-            pos.x = x;
-            pos.y = y;
-            return pos;
+    class CellPosition {
+
+        private CellPosition(){}
+
+        public static final int MASK = 0xffff;
+
+        public static int getX(int pos) {
+            return pos >> 16;
+        }
+
+        public static int getY(int pos) {
+            return pos & MASK;
+        }
+
+        public static int create(int x, int y) {
+            return (x << 16) + (y & MASK);
         }
     }
 
@@ -74,7 +84,7 @@ public interface ExcelAdapter {
         /**
          * The coordinate of this cell.
          */
-        private CellPosition mCellPosition;
+        private int mCellPosition;
 
         /**
          * This cell's view, nullable if it is subcell of others.
@@ -90,11 +100,11 @@ public interface ExcelAdapter {
         }
 
         public int getRow(){
-            return mCellPosition.y;
+            return CellPosition.getY(mCellPosition);
         }
 
         public int getColumn(){
-            return mCellPosition.x;
+            return CellPosition.getX(mCellPosition);
         }
 
         public int getMergeWidth() {
@@ -110,32 +120,32 @@ public interface ExcelAdapter {
         }
 
         public void recycle() {
-            mCellPosition = null;
+            mCellPosition = 0;
         }
 
-        public void setCellPosition(CellPosition position) {
+        public void setCellPosition(int position) {
             mCellPosition = position;
         }
 
-        public CellPosition getPosition() {
+        public int getPosition() {
             return mCellPosition;
         }
 
-        public Cell(View view, CellPosition position, int mergeWidth, int mergeHeight) {
+        public Cell(View view, int position, int mergeWidth, int mergeHeight) {
             mView = view;
             mCellPosition = position;
             mMergeWidth = mergeWidth;
             mMergeHeight = mergeHeight;
         }
 
-        public Cell(View view, CellPosition position) {
+        public Cell(View view, int position) {
             mView = view;
             mCellPosition = position;
             mMergeWidth = 1;
             mMergeHeight = 1;
         }
 
-        public static Cell createEmptyCell(CellPosition position) {
+        public static Cell createEmptyCell(int position) {
             return new Cell(null, position, 0, 0);
         }
     }

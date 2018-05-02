@@ -24,22 +24,26 @@ public class MainActivity extends AppCompatActivity {
         excelView.setExcelAdapter(new ExcelAdapter() {
             @Override
             public int getRowCount() {
-                return 20;
+                return 200;
             }
 
             @Override
             public int getColumnCount() {
-                return 20;
+                return 200;
             }
 
             @Override
-            public int getCellType(CellPosition position) {
-                if (position.x == 0 && position.y == 0 ||
-                        position.x == 2 && position.y == 2) {
+            public int getCellType(int position) {
+
+                int x = CellPosition.getX(position);
+                int y = CellPosition.getY(position);
+
+                if (x == 0 && y == 0 ||
+                    x == 2 && y == 2) {
                     return 0;
-                } else if (position.x <= 1 && position.y <= 1 ||
-                        (position.x >= 2 && position.x <= 3
-                        && position.y >= 2 && position.y <= 3)) {
+                } else if (x <= 1 && y <= 1 ||
+                        (x >= 2 && x <= 3
+                        && y >= 2 && y <= 3)) {
                     return ExcelAdapter.CELL_TYPE_EMPTY;
                 }
                 return 1;
@@ -52,18 +56,18 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public int getCellWidth(int column) {
-                return 300;
+                return 100;
             }
 
             @Override
             public int getCellHeight(int row) {
-                return 300;
+                return 100;
             }
 
             @Override
             public Cell onCreateCell(ViewGroup parent, int cellType) {
                 if (cellType == ExcelAdapter.CELL_TYPE_EMPTY) {
-                    return Cell.createEmptyCell(null);
+                    return Cell.createEmptyCell(-1);
                 }
 
                 int m = 1;
@@ -72,27 +76,33 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 TextView textView = new TextView(MainActivity.this);
-                return new Cell(textView, null, m, m);
+                return new Cell(textView, -1, m, m);
             }
 
             @Override
-            public CellPosition getParentCell(CellPosition position) {
-                if (position.x <= 1 || position.y <= 1) {
+            public int getParentCell(int position) {
+
+                int x = CellPosition.getX(position);
+                int y = CellPosition.getY(position);
+
+                if (x <= 1 || y <= 1) {
                     return CellPosition.create(0, 0);
-                } else if (position.x <= 1 && position.y <= 1 ||
-                        (position.x >= 2 && position.x <= 3
-                                && position.y >= 2 && position.y <= 3)) {
+                } else if (x <= 1 && y <= 1 ||
+                        (x >= 2 && x <= 3
+                                && y >= 2 && y <= 3)) {
                     return CellPosition.create(2, 2);
                 }
-                return null;
+                return -1;
             }
 
             @Override
-            public void onBindCell(Cell cell, CellPosition cellPosition) {
+            public void onBindCell(Cell cell, int position) {
+                int x = CellPosition.getX(position);
+                int y = CellPosition.getY(position);
                 TextView t = (TextView) cell.getView();
-                t.setText(cellPosition.y + " " + cellPosition.x);
+                t.setText(y + " " + x);
 
-                t.setBackgroundColor(colors[(cellPosition.y + cellPosition.x) % colors.length]);
+                t.setBackgroundColor(colors[(y + x) % colors.length]);
             }
         });
     }
