@@ -547,20 +547,25 @@ public class ExcelView extends ViewGroup{
 
     private ExcelAdapter.Cell _makeAndAddCell(int x, int y, int cellLeft, int cellTop) {
 
-        Log.d(TAG, String.format("x = %d y = %d left = %d top = %d", x, y, cellLeft, cellTop));
+        //Log.d(TAG, String.format("x = %d y = %d left = %d top = %d", x, y, cellLeft, cellTop));
 
         int position = ExcelAdapter.CellPosition.create(x, y);
 
         ExcelAdapter.Cell active = mAllCells.get(position);
         if (active != null) {
-            Log.d(TAG, String.format("x = %d y = %d is Active", x, y));
+            //Log.d(TAG, String.format("x = %d y = %d is Active", x, y));
             return active;
         }
 
         int cellType = mAdapter.getCellType(position);
         ExcelAdapter.Cell ret = mCellRecycler.getRecycledCell(cellType);
+
+        boolean inCache = false;
+
         if (ret == null) {
             ret = mAdapter.onCreateCell(this, cellType);
+        } else {
+            inCache = true;
         }
 
         ret.setCellPosition(position);
@@ -572,14 +577,16 @@ public class ExcelView extends ViewGroup{
         if (!ret.isEmpty()) {
 
             View view = ret.getView();
-            if (view.getLayoutParams() == null) {
-                view.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            if (!inCache) {
+                if (view.getLayoutParams() == null) {
+                    view.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+                }
+
+                int widthMeasureSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST);
+                int heightMeasureSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST);
+
+                ret.getView().measure(widthMeasureSpec, heightMeasureSpec);
             }
-
-            int widthMeasureSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST);
-            int heightMeasureSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST);
-
-            ret.getView().measure(widthMeasureSpec, heightMeasureSpec);
             mAdapter.onBindCell(ret, position);
 
 
