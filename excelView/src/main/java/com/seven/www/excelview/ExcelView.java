@@ -1,6 +1,7 @@
 package com.seven.www.excelview;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.support.v4.util.ArrayMap;
 import android.support.v4.view.VelocityTrackerCompat;
@@ -318,6 +319,13 @@ public class ExcelView extends ViewGroup{
             nextLeft += mAdapter.getCellWidth(startX);
             startX++;
         }
+
+        nextLeft = 0;
+        for (int x = 0; x < getMinFullScrollX(); ++x) {
+            _makeAndAddCell(x, y, nextLeft, top);
+
+            nextLeft += mAdapter.getCellWidth(x);
+        }
     }
 
     private void _makeColumn(int x, int startY, int top, int left) {
@@ -330,6 +338,13 @@ public class ExcelView extends ViewGroup{
 
             top += mAdapter.getCellHeight(startY);
             startY++;
+        }
+
+        top = 0;
+        for (int y = 0; y < getMinFullScrollY(); ++y) {
+
+            _makeAndAddCell(x, y, left, top);
+            top += mAdapter.getCellHeight(y);
         }
     }
 
@@ -365,6 +380,8 @@ public class ExcelView extends ViewGroup{
         if (!ret.isEmpty()) {
 
             View view = ret.getView();
+            view.setTag(R.id.cell_x, x);
+            view.setTag(R.id.cell_y, y);
             if (!inCache) {
                 if (view.getLayoutParams() == null) {
                     view.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
@@ -496,38 +513,44 @@ public class ExcelView extends ViewGroup{
             int right = getRight(mLastVisibleColumn);
 
             int targetLastVisibleColumn = mLastVisibleColumn;
-            final int maxColumn = mAdapter.getColumnCount() - 1;
+            final int maxColumn = getMaxFullScrollX();
 
             int targetRight = right + dx;
 
-            while (targetRight < getMeasuredWidth() && targetLastVisibleColumn < maxColumn) {
+            final int maxRight = getMaxFullScrollRight();
+
+            while (targetRight < maxRight && targetLastVisibleColumn < maxColumn) {
                 targetLastVisibleColumn++;
                 targetRight += mAdapter.getCellWidth(targetLastVisibleColumn);
             }
 
-            if (targetRight >= getMeasuredWidth()) {
+            if (targetRight >= maxRight) {
                 return dx;
             } else {
-                return dx + (getMeasuredWidth() - targetRight);
+                return dx + (maxRight - targetRight);
             }
         } else if (dx > 0) {
 
+
             int left = getLeft(mFirstVisibleColumn);
             int targetFirstVisibleColumn = mFirstVisibleColumn;
-            final int minColumn = 0;
+            final int minColumn = getMinFullScrollX();
 
             int targetLeft = left + dx;
 
-            while (targetLeft > 0 && targetFirstVisibleColumn > minColumn) {
+            final int minLeft = getMinFullScrollLeft();
+
+            while (targetLeft > minLeft && targetFirstVisibleColumn > minColumn) {
                 targetFirstVisibleColumn--;
 
                 targetLeft -= mAdapter.getCellWidth(targetFirstVisibleColumn);
             }
 
-            if (targetLeft <= 0) {
+
+            if (targetLeft <= minLeft) {
                 return dx;
             } else {
-                return dx - targetLeft;
+                return dx - (targetLeft - minLeft);
             }
         }
 
@@ -538,30 +561,32 @@ public class ExcelView extends ViewGroup{
         if (dy < 0) {
             int bottom = getBottom(mLastVisibleRow);
             int targetLastVisibleRow = mLastVisibleRow;
-            final int maxRow = mAdapter.getRowCount() - 1;
+            final int maxRow = getMaxFullScrollY();
             int targetBottom = bottom + dy;
-            while (targetBottom < getMeasuredHeight() && targetLastVisibleRow < maxRow) {
+            final int maxY = getMaxFullScrollBottom();
+            while (targetBottom < maxY && targetLastVisibleRow < maxRow) {
                 targetLastVisibleRow++;
                 targetBottom += mAdapter.getCellHeight(targetLastVisibleRow);
             }
-            if (targetBottom >= getMeasuredHeight()) {
+            if (targetBottom >= maxY) {
                 return dy;
             } else {
-                return dy + (getMeasuredHeight() - targetBottom);
+                return dy + (maxY - targetBottom);
             }
         } else if (dy > 0) {
             int top = getTop(mFirstVisibleRow);
             int targetFirstVisibleRow = mFirstVisibleRow;
-            final int minRow = 0;
+            final int minRow = getMinFullScrollY();
             int targetTop = top + dy;
-            while (targetTop > 0 && targetFirstVisibleRow > minRow) {
+            final int minY = getMinFullScrollTop();
+            while (targetTop > minY && targetFirstVisibleRow > minRow) {
                 targetFirstVisibleRow--;
                 targetTop -= mAdapter.getCellHeight(targetFirstVisibleRow);
             }
-            if (targetTop <= 0) {
+            if (targetTop <= minY) {
                 return dy;
             } else {
-                return dy - targetTop;
+                return dy - (targetTop - minY);
             }
         }
         return dy;
@@ -636,16 +661,71 @@ public class ExcelView extends ViewGroup{
 
 
     private void _relayoutChildren(int dx, int dy) {
-        int count = getChildCount();
 
-        for (int i = 0; i < count; ++i) {
-            View child = getChildAt(i);
+        for (ExcelAdapter.Cell cell : mAllCells.values()) {
 
+            if (cell.isEmpty()) {
+                continue;
+            }
 
-            child.offsetLeftAndRight(dx);
-            child.offsetTopAndBottom(dy);
+            final int x = cell.getColumn();
+            final int y = cell.getRow();
+            final View view = cell.getView();
 
+            if (x >= getMinFullScrollX() && x <= getMaxFullScrollX() &&
+                    y >= getMinFullScrollY() && y <= getMaxFullScrollY()) {
+                view.offsetLeftAndRight(dx);
+                view.offsetTopAndBottom(dy);
+            } else if (x < getMinFullScrollX() && y < getMinFullScrollY()) {
+                // no move
+            } else {
+                if (x >= getMinFullScrollX()) {
+                    // x scroll
+                    view.offsetLeftAndRight(dx);
+                } else {
+                    // y scroll
+                    view.offsetTopAndBottom(dy);
+                }
+            }
         }
+    }
+
+    @Override
+    protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
+
+        canvas.save();
+
+        final int x = (int) child.getTag(R.id.cell_x);
+        final int y = (int) child.getTag(R.id.cell_y);
+
+        final int minScrollX = getMinFullScrollX();
+        final int maxScrollX = getMaxFullScrollX();
+        final int minScrollY = getMinFullScrollY();
+        final int maxScrollY = getMaxFullScrollY();
+
+        if (x >= minScrollX && x <= maxScrollX &&
+                y >= minScrollY && y <= maxScrollY) {
+            Rect rect = new Rect(getMinFullScrollLeft(), getMinFullScrollTop(),
+                    getMaxFullScrollRight(), getMaxFullScrollBottom());
+            canvas.clipRect(rect);
+        } else if (x < minScrollX && y < minScrollY) {
+            Rect rect = new Rect(0, 0, getMinFullScrollLeft(), getMinFullScrollTop());
+            canvas.clipRect(rect);
+        } else {
+            if (x >= minScrollX) {
+                Rect rect = new Rect(getMinFullScrollLeft(), 0, getMaxFullScrollRight(), getMinFullScrollTop());
+                canvas.clipRect(rect);
+            } else {
+                Rect rect = new Rect(0, getMinFullScrollTop(), getMinFullScrollLeft(), getMaxFullScrollBottom());
+
+                canvas.clipRect(rect);
+            }
+        }
+
+        boolean ret = super.drawChild(canvas, child, drawingTime);
+
+        canvas.restore();
+        return ret;
     }
 
     private void recycle(int dx, int dy) {
@@ -666,9 +746,12 @@ public class ExcelView extends ViewGroup{
     private void recycleTop() {
 
         int y = mFirstVisibleRow;
-        int maxY = mAdapter.getRowCount() - 1;
+        int maxY = getMaxFullScrollY();
+
+        int minTop = getMinFullScrollTop();
+
         int bottom = getBottom(y);
-        while (y <= maxY && bottom <= 0) {
+        while (y <= maxY && bottom <= minTop) {
             recycleRow(y);
 
             y++;
@@ -681,10 +764,12 @@ public class ExcelView extends ViewGroup{
     private void recycleLeft() {
 
         int x = mFirstVisibleColumn;
-        int maxX = mAdapter.getColumnCount() - 1;
+        int maxX = getMaxFullScrollX();
+        int minLeft = getMinFullScrollLeft();
+
         int right = getRight(x);
 
-        while (x <= maxX && right <= 0) {
+        while (x <= maxX && right <= minLeft) {
 
             recycleColumn(x);
 
@@ -698,10 +783,11 @@ public class ExcelView extends ViewGroup{
     private void recycleBottom() {
 
         int y = mLastVisibleRow;
-        int minY = 0;
+        int minY = getMinFullScrollY();
+        int maxBottom = getMaxFullScrollBottom();
 
         int top = getTop(y);
-        while (y >= minY && top >= getMeasuredHeight()) {
+        while (y >= minY && top >= maxBottom) {
 
             recycleRow(y);
 
@@ -715,11 +801,12 @@ public class ExcelView extends ViewGroup{
     private void recycleRight() {
 
         int x = mLastVisibleColumn;
-        int minX = 0;
+        int minX = getMinFullScrollX();
+        int maxRight = getMaxFullScrollRight();
 
         int left = getLeft(x);
 
-        while (x >= minX && left >= getMeasuredWidth()) {
+        while (x >= minX && left >= maxRight) {
 
             recycleColumn(x);
             x--;
@@ -755,10 +842,10 @@ public class ExcelView extends ViewGroup{
             int top = cellView.getTop();
             int bottom = cellView.getBottom();
 
-            if (left >= getMeasuredWidth() ||
-                    right <= 0 ||
-                    top >= getMeasuredHeight() ||
-                    bottom <= 0) {
+            if (left >= getMaxFullScrollRight() ||
+                    right <= getMinFullScrollLeft() ||
+                    top >= getMaxFullScrollBottom() ||
+                    bottom <= getMinFullScrollTop()) {
                 shouldRemove = true;
             }
         } else {
