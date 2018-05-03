@@ -683,8 +683,6 @@ public class ExcelView extends ViewGroup{
 
         _relayoutChildren(dx, dy);
 
-        recycle(dx, dy);
-
         if (dy < 0) {
             _fillDown(mFirstVisibleColumn, mLastVisibleRow+1,
                     getTop(mLastVisibleRow + 1), getLeft(mFirstVisibleColumn));
@@ -701,6 +699,8 @@ public class ExcelView extends ViewGroup{
             _fillLeft(mFirstVisibleColumn - 1, mFirstVisibleRow,
                     getTop(mFirstVisibleRow), getRight(mFirstVisibleColumn - 1));
         }
+
+        recycle(dx, dy);
     }
 
     private int attemptScrollX(int dx) {
