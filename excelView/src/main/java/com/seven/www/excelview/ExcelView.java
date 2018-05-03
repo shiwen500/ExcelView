@@ -111,11 +111,30 @@ public class ExcelView extends ViewGroup{
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 
-        setMeasuredDimension(getMeasureWidthOrHeight(widthMeasureSpec, mWidths),
-            getMeasureWidthOrHeight(heightMeasureSpec, mHeights));
+        final int height = MeasureSpec.getSize(heightMeasureSpec);
+        final int width = MeasureSpec.getSize(widthMeasureSpec);
+
+        int totalWidth = 0;
+        for (int i = 0; i < mAdapter.getColumnCount(); ++i) {
+            totalWidth += mAdapter.getCellWidth(i);
+            if (totalWidth > width) {
+                break;
+            }
+        }
+
+        int totalHeight = 0;
+        for (int i = 0; i < mAdapter.getRowCount(); ++i) {
+            totalHeight += mAdapter.getCellHeight(i);
+            if (totalHeight > height) {
+                break;
+            }
+        }
+
+        setMeasuredDimension(getMeasureWidthOrHeight(widthMeasureSpec, totalWidth),
+            getMeasureWidthOrHeight(heightMeasureSpec, totalHeight));
     }
 
-    private int getMeasureWidthOrHeight(int measureSpec, int[] sizes) {
+    private int getMeasureWidthOrHeight(int measureSpec, int expect) {
         final int mode = MeasureSpec.getMode(measureSpec);
         final int size = MeasureSpec.getSize(measureSpec);
 
@@ -123,9 +142,9 @@ public class ExcelView extends ViewGroup{
             case MeasureSpec.EXACTLY:
                 return size;
             case MeasureSpec.UNSPECIFIED:
-                return sum(sizes);
+                return expect;
             case MeasureSpec.AT_MOST:
-                return Math.min(sum(sizes), size);
+                return Math.min(expect, size);
         }
 
         return 0;
@@ -145,205 +164,14 @@ public class ExcelView extends ViewGroup{
         }
         mAdapter = adapter;
         mCellRecycler = new CellRecycler(mAdapter.getCellTypeCount());
-        setUpAdapter();
-    }
-
-    private void setUpAdapter() {
-        // init body's heights & widths.
-        mWidths = new int[mAdapter.getColumnCount()];
-        mHeights = new int[mAdapter.getRowCount()];
-
-        for (int col = 0; col < mWidths.length; ++col) {
-            mWidths[col] = mAdapter.getCellWidth(col);
-        }
-        for (int row = 0; row < mHeights.length; ++row) {
-            mHeights[row] = mAdapter.getCellHeight(row);
-        }
-
-    }
-
-    private ExcelAdapter.Cell makeAndAddCell(int row, int column) {
-
-        int position = ExcelAdapter.CellPosition.create(column, row);
-        int cellType = mAdapter.getCellType(position);
-        ExcelAdapter.Cell ret = mCellRecycler.getRecycledCell(cellType);
-        if (ret == null) {
-            ret = mAdapter.onCreateCell(this, cellType);
-        }
-
-        ret.setCellPosition(position);
-
-        int width = getCellWidth(ret);
-        int height = getCellHeight(ret);
-
-        if (!ret.isEmpty()) {
-
-            View view = ret.getView();
-            if (view.getLayoutParams() == null) {
-                view.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-            }
-
-            int widthMeasureSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST);
-            int heightMeasureSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST);
-
-            ret.getView().measure(widthMeasureSpec, heightMeasureSpec);
-
-
-            mAdapter.onBindCell(ret, position);
-
-            addCell(ret);
-        }
-
-        return ret;
-    }
-
-    private void addLeft() {
-        addColumn(mFirstVisibleColumn);
-        mCellsRect.left -= mWidths[mFirstVisibleColumn];
-        mFirstVisibleColumn--;
-    }
-
-    private void addRight() {
-        int newColumnNumber = mFirstVisibleColumn + getCurrentVisibleColumnCount();
-        addColumn(newColumnNumber);
-        mCellsRect.right += mWidths[newColumnNumber];
-    }
-
-    private void addTop() {
-        addRow(mFirstVisibleRow);
-        mCellsRect.top -= mHeights[mFirstVisibleRow];
-        mFirstVisibleRow--;
-    }
-
-    private void addBottom() {
-        int newRowNumber = mFirstVisibleRow + getCurrentVisibleRowCount();
-        addRow(newRowNumber);
-        mCellsRect.bottom += mHeights[newRowNumber];
-    }
-
-    private void addColumn(int column) {
-        int internalColIndex = column - mFirstVisibleColumn;
-
-        int row = mFirstVisibleRow;
-
-        if (internalColIndex < 0) {
-            internalColIndex = 0;
-        } else if (internalColIndex >= getCurrentVisibleColumnCount()) {
-            internalColIndex = getCurrentVisibleColumnCount();
-        }
-
-        for (List<ExcelAdapter.Cell> r : mCells) {
-            ExcelAdapter.Cell cell = makeAndAddCell(row, column);
-
-            r.add(internalColIndex, cell);
-
-            row++;
-        }
-    }
-
-    private void addRow(int row) {
-        int internalRowIndex = row - mFirstVisibleRow;
-
-        int column = mFirstVisibleColumn;
-        if (internalRowIndex < 0) {
-            internalRowIndex = 0;
-        } else if (internalRowIndex >= getCurrentVisibleRowCount()) {
-            internalRowIndex = getCurrentVisibleRowCount();
-        }
-
-        List<ExcelAdapter.Cell> r = new ArrayList<>();
-        mCells.add(internalRowIndex, r);
-
-        int colCount = getCurrentVisibleColumnCount();
-
-        for (int i = 0; i < colCount; ++i) {
-
-            ExcelAdapter.Cell cell = makeAndAddCell(row, column);
-
-            r.add(i, cell);
-
-            column++;
-        }
-    }
-
-    private void removeLeft() {
-        removeColumn(mFirstVisibleColumn);
-        mCellsRect.left += mWidths[mFirstVisibleColumn];
-        mFirstVisibleColumn++;
-    }
-
-    private void removeRight() {
-        int removedColumnNumber = mFirstVisibleColumn + getCurrentVisibleColumnCount() - 1;
-        removeColumn(removedColumnNumber);
-        mCellsRect.right -= mWidths[removedColumnNumber];
-    }
-
-    private void removeTop() {
-        removeRow(mFirstVisibleRow);
-        mCellsRect.top += mHeights[mFirstVisibleRow];
-
-        mFirstVisibleRow++;
-    }
-
-    private void removeBottom() {
-        int removedRowNumber = mFirstVisibleRow + getCurrentVisibleRowCount() - 1;
-        removeColumn(removedRowNumber);
-        mCellsRect.bottom -= mHeights[removedRowNumber];
-    }
-
-    private void removeColumn(int column) {
-        int internalColIndex = column - mFirstVisibleColumn;
-
-        int row = mFirstVisibleRow;
-        for (List<ExcelAdapter.Cell> r : mCells) {
-            int cellType = getCellType(row, column);
-
-            ExcelAdapter.Cell cell = r.remove(internalColIndex);
-            removeCell(cell);
-
-            mCellRecycler.addRecycledCell(cell, cellType);
-
-            row++;
-        }
-    }
-
-    private void removeRow(int row) {
-        int internalRowIndex = row - mFirstVisibleRow;
-
-        int column = mFirstVisibleColumn;
-
-        List<ExcelAdapter.Cell> cellRow = mCells.remove(internalRowIndex);
-        for (ExcelAdapter.Cell c : cellRow) {
-
-            int cellType = getCellType(row, column);
-            removeCell(c);
-
-            mCellRecycler.addRecycledCell(c, cellType);
-
-            column++;
-        }
-    }
-
-    private int getCellType(int row, int column) {
-        int position = ExcelAdapter.CellPosition.create(column, row);
-        return mAdapter.getCellType(position);
     }
 
     private void removeCell(ExcelAdapter.Cell cell) {
         if (!cell.isEmpty()) {
             removeView(cell.getView());
         }
-
-        Log.d("Seven2", "remove -> " + cell.getPosition());
         ExcelAdapter.Cell recycle = mAllCells.remove(cell.getPosition());
         mCellRecycler.addRecycledCell(recycle, mAdapter.getCellType(cell.getPosition()));
-    }
-
-    private void removeCell(ExcelAdapter.CellPosition pos) {
-        ExcelAdapter.Cell cell = mAllCells.remove(pos);
-        if (cell != null && !cell.isEmpty()) {
-            removeView(cell.getView());
-        }
     }
 
     private void addCell(ExcelAdapter.Cell cell) {
@@ -351,41 +179,6 @@ public class ExcelView extends ViewGroup{
             addView(cell.getView());
         }
         mAllCells.put(cell.getPosition(), cell);
-    }
-
-    private int getCurrentVisibleRowCount() {
-        return mCells.size();
-    }
-
-    private int getCurrentVisibleColumnCount() {
-        if (mCells.isEmpty()) {
-            return 0;
-        }
-        return mCells.get(0).size();
-    }
-
-    private int getMaxVisibleRowCount() {
-        int maxRowCount = 0;
-        int index = mFirstVisibleRow;
-        int bottom = mCellsRect.top;
-        while (bottom < mScrollY + getMeasuredHeight()) {
-            bottom += mHeights[index];
-            ++maxRowCount;
-            ++index;
-        }
-        return maxRowCount;
-    }
-
-    private int getMaxVisibleColumnCount() {
-        int maxColumnCount = 0;
-        int index = mFirstVisibleColumn;
-        int right = mCellsRect.left;
-        while (right < mScrollX + getMeasuredWidth()) {
-            right += mWidths[index];
-            ++index;
-            ++maxColumnCount;
-        }
-        return maxColumnCount;
     }
 
     private int getCellWidth(ExcelAdapter.Cell cell) {
@@ -846,13 +639,6 @@ public class ExcelView extends ViewGroup{
         return top + mAdapter.getCellHeight(row);
     }
 
-    private ExcelAdapter.Cell getCell(int x, int y) {
-        if (mAdapter.getRowCount() == 0 || mAdapter.getColumnCount() == 0) {
-            return null;
-        }
-        int cellPosition = ExcelAdapter.CellPosition.create(x, y);
-        return mAllCells.get(cellPosition);
-    }
 
     private void _relayoutChildren(int dx, int dy) {
         int count = getChildCount();
@@ -997,23 +783,12 @@ public class ExcelView extends ViewGroup{
 
     private void recycleColumn(int column) {
 
-        Log.d("Seven2", "recyc " + column + " ");
-
         int startRow = mFirstVisibleRow;
         int endRow = mLastVisibleRow;
 
         for (int r = startRow; r <= endRow; ++r) {
             removeAndRecycleCell(column, r);
         }
-    }
-
-    private int _calculateDeltaValue(int currentVal, int deltaVal, int maxVal, int minVal) {
-        if (deltaVal < 0) {
-            return Math.max(currentVal + deltaVal, minVal) - currentVal;
-        } else if (deltaVal > 0) {
-            return Math.min(currentVal + deltaVal, maxVal) - currentVal;
-        }
-        return deltaVal;
     }
 
     private class FlingRunnable implements Runnable {
