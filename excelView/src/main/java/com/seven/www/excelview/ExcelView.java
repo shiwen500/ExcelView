@@ -63,6 +63,9 @@ public class ExcelView extends ViewGroup{
     private int mMinVelocity;
 
 
+    private int mFixedX = 1;
+    private int mFixedY = 1;
+
     public ExcelView(Context context) {
         this(context, null);
     }
@@ -85,20 +88,20 @@ public class ExcelView extends ViewGroup{
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         if (changed) {
-            init(0, 0);
+            init(getMinFullScrollX(), getMinFullScrollY());
         }
     }
 
     private void init(int x, int y) {
-        _fillDown(x, y, 0, 0);
+        _fillDown(x, y, getMinFullScrollTop(), getMinFullScrollLeft());
 
         mFirstVisibleRow = y;
         mFirstVisibleColumn = x;
 
         int lastVisableX = mFirstVisibleColumn;
-        int maxX = mAdapter.getColumnCount() - 1;
-        int boundWidth = getWidth();
-        int right = mAdapter.getCellWidth(lastVisableX);
+        int maxX = getMaxFullScrollX();
+        int boundWidth = getMaxFullScrollRight();
+        int right = mAdapter.getCellWidth(lastVisableX) + getMinFullScrollLeft();
 
         while (right < boundWidth && lastVisableX < maxX) {
             lastVisableX++;
@@ -148,14 +151,6 @@ public class ExcelView extends ViewGroup{
         }
 
         return 0;
-    }
-
-    private int sum(int[] sizes) {
-        int sum = 0;
-        for (int size : sizes) {
-            sum += size;
-        }
-        return sum;
     }
 
     public void setExcelAdapter(ExcelAdapter adapter) {
@@ -240,8 +235,8 @@ public class ExcelView extends ViewGroup{
 
         Log.d("Seven", " x -> " + x + "  " + y + " " + nextTop + "  " + nextLeft);
 
-        int yEnd = getMeasuredHeight(); // ignore padding
-        int maxY = mAdapter.getRowCount() - 1;
+        int yEnd = getMaxFullScrollBottom(); // ignore padding
+        int maxY = getMaxFullScrollY();
 
         while (y <= maxY && nextTop < yEnd) {
 
@@ -262,8 +257,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillRight(int x, int y, int top, int left) {
 
-        int xEnd = getMeasuredWidth();
-        int maxX = mAdapter.getColumnCount() - 1;
+        int xEnd = getMaxFullScrollRight();
+        int maxX = getMaxFullScrollX();
 
         while (x <= maxX && left < xEnd) {
 
@@ -279,8 +274,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillUp(int x, int y, int bottom, int left) {
 
-        int yStart = 0; // ignore padding
-        int minY = 0;
+        int yStart = getMinFullScrollTop(); // ignore padding
+        int minY = getMinFullScrollY();
 
         while (y >= minY && bottom > yStart) {
 
@@ -296,8 +291,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillLeft(int x, int y, int top, int right) {
 
-        int xStart = 0;
-        int minX = 0;
+        int xStart = getMinFullScrollLeft();
+        int minX = getMinFullScrollX();
 
         while (x >= minX && right > xStart) {
 
@@ -313,8 +308,8 @@ public class ExcelView extends ViewGroup{
 
     private void _makeRow(int startX, int y, int top, int nextLeft) {
 
-        int xEnd = getMeasuredWidth(); // ignore padding.
-        int maxX = mAdapter.getColumnCount() - 1;
+        int xEnd = getMaxFullScrollRight(); // ignore padding.
+        int maxX = getMaxFullScrollX();
 
         while (startX <= maxX && nextLeft < xEnd) {
 
@@ -326,8 +321,8 @@ public class ExcelView extends ViewGroup{
     }
 
     private void _makeColumn(int x, int startY, int top, int left) {
-        int yEnd = getMeasuredHeight();
-        int maxY = mAdapter.getRowCount() - 1;
+        int yEnd = getMaxFullScrollBottom();
+        int maxY = getMaxFullScrollY();
 
         while (startY <= maxY && top < yEnd) {
 
@@ -789,6 +784,46 @@ public class ExcelView extends ViewGroup{
         for (int r = startRow; r <= endRow; ++r) {
             removeAndRecycleCell(column, r);
         }
+    }
+
+    private int getMinFullScrollX() {
+        return mFixedX + 1;
+    }
+
+    private int getMinFullScrollY() {
+        return mFixedY + 1;
+    }
+
+    private int getMaxFullScrollX() {
+        return mAdapter.getColumnCount() - 1;
+    }
+
+    private int getMaxFullScrollY() {
+        return mAdapter.getRowCount() - 1;
+    }
+
+    private int getMinFullScrollLeft() {
+        int ret = 0;
+        for (int i = 0; i <= mFixedX; ++i) {
+            ret += mAdapter.getCellWidth(i);
+        }
+        return ret;
+    }
+
+    private int getMinFullScrollTop() {
+        int ret = 0;
+        for (int i = 0; i <= mFixedY; ++i) {
+            ret += mAdapter.getCellHeight(i);
+        }
+        return ret;
+    }
+
+    private int getMaxFullScrollRight() {
+        return getWidth();
+    }
+
+    private int getMaxFullScrollBottom() {
+        return getHeight();
     }
 
     private class FlingRunnable implements Runnable {
