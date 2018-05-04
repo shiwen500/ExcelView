@@ -38,4 +38,8 @@ public class CellRecycler {
             return null;
         }
     }
+
+    public void clear() {
+        mRecyclers.clear();
+    }
 }

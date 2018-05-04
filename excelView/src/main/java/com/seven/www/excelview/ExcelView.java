@@ -3,11 +3,8 @@ package com.seven.www.excelview;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Rect;
-import android.support.v4.util.ArrayMap;
-import android.support.v4.view.VelocityTrackerCompat;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
@@ -15,19 +12,9 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.Scroller;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
-import java.util.SortedSet;
 import java.util.TreeMap;
-import java.util.Vector;
 
 /**
  * This view show a table likes excel.
@@ -42,16 +29,6 @@ public class ExcelView extends ViewGroup{
 
     private CellRecycler mCellRecycler;
 
-    private int[] mWidths;
-    private int[] mHeights;
-
-    private List<List<ExcelAdapter.Cell>> mCells = new ArrayList<>();
-
-    private Rect mCellsRect = new Rect();
-
-    private int mScrollX;
-    private int mScrollY;
-
     private int mFirstVisibleRow;
     private int mLastVisibleRow;
     private int mFirstVisibleColumn;
@@ -63,9 +40,13 @@ public class ExcelView extends ViewGroup{
     private int mMaxVelocity;
     private int mMinVelocity;
 
+    private float mLastTouchX;
+    private float mLastTouchY;
 
-    private int mFixedX = 1;
-    private int mFixedY = 1;
+    private int mFixedX = -1;
+    private int mFixedY = -1;
+
+    private boolean mNotifyChanged;
 
     public ExcelView(Context context) {
         this(context, null);
@@ -88,13 +69,24 @@ public class ExcelView extends ViewGroup{
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        if (changed) {
-            init(getMinFullScrollX(), getMinFullScrollY());
+        if (changed || mNotifyChanged) {
+            init();
+
+            mNotifyChanged = false;
         }
     }
 
-    private void init(int x, int y) {
+    private void init() {
+
+        clearAllCell();
+
+        final int x = getMinFullScrollX();
+        final int y = getMinFullScrollY();
+
         _fillDown(x, y, getMinFullScrollTop(), getMinFullScrollLeft());
+        _fillRight(x, y, getMinFullScrollTop(),getMinFullScrollLeft());
+
+        _fillTopLeft();
 
         mFirstVisibleRow = y;
         mFirstVisibleColumn = x;
@@ -110,6 +102,31 @@ public class ExcelView extends ViewGroup{
         }
 
         mLastVisibleColumn = lastVisableX;
+    }
+
+    private void clearAllCell() {
+        mAllCells.clear();
+        removeAllViews();
+        mCellRecycler.clear();
+    }
+
+    private void _fillTopLeft() {
+        final int maxX = getMinFullScrollX();
+        final int maxY = getMinFullScrollY();
+
+        int left = 0;
+        int top = 0;
+
+        for (int x = 0; x < maxX; ++x) {
+            for (int y = 0; y < maxY; ++y) {
+                _makeAndAddCell(x, y, left, top);
+
+                top += mAdapter.getCellHeight(y);
+            }
+
+            left += mAdapter.getCellWidth(x);
+            top = 0;
+        }
     }
 
     @Override
@@ -162,6 +179,18 @@ public class ExcelView extends ViewGroup{
         mCellRecycler = new CellRecycler(mAdapter.getCellTypeCount());
     }
 
+    public void setFixedXAndY(int fixedX, int fixedY) {
+        mFixedX = fixedX;
+        mFixedY = fixedY;
+
+        notifyChanged();
+    }
+
+    public void notifyChanged() {
+        mNotifyChanged = true;
+        requestLayout();
+    }
+
     private void removeCell(ExcelAdapter.Cell cell) {
         if (!cell.isEmpty()) {
             removeView(cell.getView());
@@ -200,8 +229,6 @@ public class ExcelView extends ViewGroup{
     }
 
 
-    /*******************************/
-
     private SortedMap<Integer, ExcelAdapter.Cell>
         mAllCells = new TreeMap<>(new Comparator<Integer>() {
         @Override
@@ -229,12 +256,7 @@ public class ExcelView extends ViewGroup{
         }
     });
 
-    private float mLastTouchX;
-    private float mLastTouchY;
-
     private void _fillDown(int x, int y, int nextTop, int nextLeft) {
-
-        Log.d("Seven", " x -> " + x + "  " + y + " " + nextTop + "  " + nextLeft);
 
         int yEnd = getMaxFullScrollBottom(); // ignore padding
         int maxY = getMaxFullScrollY();
@@ -350,13 +372,10 @@ public class ExcelView extends ViewGroup{
 
     private ExcelAdapter.Cell _makeAndAddCell(int x, int y, int cellLeft, int cellTop) {
 
-        //Log.d(TAG, String.format("x = %d y = %d left = %d top = %d", x, y, cellLeft, cellTop));
-
         int position = ExcelAdapter.CellPosition.create(x, y);
 
         ExcelAdapter.Cell active = mAllCells.get(position);
         if (active != null) {
-            //Log.d(TAG, String.format("x = %d y = %d is Active", x, y));
             return active;
         }
 
@@ -823,6 +842,10 @@ public class ExcelView extends ViewGroup{
         for (int c = startColumn; c <= endColumn; ++c) {
             removeAndRecycleCell(c, row);
         }
+
+        for (int c = 0; c < getMinFullScrollX(); ++c) {
+            removeAndRecycleCell(c, row);
+        }
     }
 
     private void removeAndRecycleCell(int x, int y) {
@@ -869,6 +892,10 @@ public class ExcelView extends ViewGroup{
         int endRow = mLastVisibleRow;
 
         for (int r = startRow; r <= endRow; ++r) {
+            removeAndRecycleCell(column, r);
+        }
+
+        for (int r = 0; r < getMinFullScrollY(); ++r) {
             removeAndRecycleCell(column, r);
         }
     }

@@ -3,6 +3,7 @@ package com.seven.www.example;
 import android.graphics.Color;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
@@ -13,12 +14,14 @@ public class MainActivity extends AppCompatActivity {
 
     private int[] colors = {Color.BLACK, Color.RED, Color.BLUE, Color.GREEN};
 
+    ExcelView excelView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ExcelView excelView = (ExcelView) findViewById(R.id.excelView);
+        excelView = (ExcelView) findViewById(R.id.excelView);
         android.util.Log.d("Seven", "fffff");
 
         excelView.setExcelAdapter(new ExcelAdapter() {
@@ -78,5 +81,9 @@ public class MainActivity extends AppCompatActivity {
                 t.setBackgroundColor(colors[(y + x) % colors.length]);
             }
         });
+    }
+
+    public void onTest(View view) {
+        excelView.setFixedXAndY(1, 1);
     }
 }
