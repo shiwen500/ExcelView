@@ -2,9 +2,13 @@ package com.seven.www.excelview;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
@@ -73,6 +77,9 @@ public class ExcelView extends ViewGroup{
 
     private boolean mNotifyChanged;
 
+    private Drawable mDevider;
+    private int mDividerWidth;
+
     public ExcelView(Context context) {
         this(context, null);
     }
@@ -89,6 +96,9 @@ public class ExcelView extends ViewGroup{
         mMinVelocity = viewConfiguration.getScaledMinimumFlingVelocity();
 
         mFlingRunnable = new FlingRunnable(getContext());
+
+        mDevider = new ColorDrawable(Color.YELLOW);
+        mDividerWidth = 10;
     }
 
 
@@ -206,7 +216,7 @@ public class ExcelView extends ViewGroup{
         if (adapter == null) {
             throw new IllegalArgumentException("Don't pass an null adapter");
         }
-        mAdapter = adapter;
+        mAdapter = new ExcelAdapterWrapper(adapter, mDividerWidth);
         mCellRecycler = new CellRecycler(mAdapter.getCellTypeCount());
     }
 
@@ -432,16 +442,26 @@ public class ExcelView extends ViewGroup{
             View view = ret.getView();
             view.setTag(R.id.cell_x, x);
             view.setTag(R.id.cell_y, y);
+
             if (!inCache) {
                 if (view.getLayoutParams() == null) {
                     view.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
                 }
-
-                int widthMeasureSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST);
-                int heightMeasureSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST);
+                int widthMeasureSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY);
+                int heightMeasureSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY);
 
                 ret.getView().measure(widthMeasureSpec, heightMeasureSpec);
+
+                if (mDividerWidth > 0) {
+                    int paddingBottom = view.getPaddingBottom() + mDividerWidth;
+                    int paddingRight = view.getPaddingRight() + mDividerWidth;
+                    int paddingLeft = view.getPaddingLeft();
+                    int paddingTop = view.getPaddingTop();
+
+                    view.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
+                }
             }
+
             mAdapter.onBindCell(ret, position);
 
 
@@ -556,6 +576,9 @@ public class ExcelView extends ViewGroup{
         }
 
         recycle(dx, dy);
+
+        // draw it now.
+        invalidate();
     }
 
     /**
@@ -784,11 +807,47 @@ public class ExcelView extends ViewGroup{
                 canvas.clipRect(rect);
             }
         }
-
         boolean ret = super.drawChild(canvas, child, drawingTime);
 
         canvas.restore();
         return ret;
+    }
+
+    /**
+     * Draw bottom & right divider for a cell
+     *
+     * @param child the divider's owner
+     * @param canvas the canvas
+     * @param divider the divider drawable
+     */
+    private void drawDivider(View child, Canvas canvas, Drawable divider) {
+        if (divider == null || mDividerWidth <= 0) {
+            return;
+        }
+        int left = child.getLeft();
+        int right = child.getRight();
+        int top = child.getTop();
+        int bottom = child.getBottom();
+
+        Rect bounds = new Rect(right - mDividerWidth, top, right, bottom);
+        divider.setBounds(bounds);
+        divider.draw(canvas);
+
+        bounds = new Rect(left, bottom - mDividerWidth, right - mDividerWidth, bottom);
+        divider.setBounds(bounds);
+        divider.draw(canvas);
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+
+        int childCount = getChildCount();
+        for (int i = 0; i < childCount; ++i) {
+            View child = getChildAt(i);
+            drawDivider(child, canvas, mDevider);
+        }
+
+        super.dispatchDraw(canvas);
     }
 
     private void recycle(int dx, int dy) {
@@ -984,6 +1043,18 @@ public class ExcelView extends ViewGroup{
         return getHeight();
     }
 
+    public void setDividerDrawable(Drawable drawable) {
+        mDevider = drawable;
+        requestLayout();
+        invalidate();
+    }
+
+    public void setDividerWidth(int dividerWidth) {
+        mDividerWidth = dividerWidth;
+        requestLayout();
+        invalidate();
+    }
+
     private class FlingRunnable implements Runnable {
 
         private Scroller mScroller;
@@ -1028,6 +1099,62 @@ public class ExcelView extends ViewGroup{
             if (!mScroller.isFinished()) {
                 mScroller.forceFinished(true);
             }
+        }
+    }
+
+    static class ExcelAdapterWrapper implements ExcelAdapter {
+
+        ExcelAdapter mExcelAdapter;
+        int mDividerWidth;
+
+        ExcelAdapterWrapper(ExcelAdapter adapter, int dividerWidth) {
+            mExcelAdapter = adapter;
+            mDividerWidth = dividerWidth;
+        }
+
+        @Override
+        public int getRowCount() {
+            return mExcelAdapter.getRowCount();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return mExcelAdapter.getColumnCount();
+        }
+
+        @Override
+        public int getCellType(int position) {
+            return mExcelAdapter.getCellType(position);
+        }
+
+        @Override
+        public int getCellTypeCount() {
+            return mExcelAdapter.getCellTypeCount();
+        }
+
+        @Override
+        public int getCellWidth(int column) {
+            return mExcelAdapter.getCellWidth(column) + mDividerWidth;
+        }
+
+        @Override
+        public int getCellHeight(int row) {
+            return mExcelAdapter.getCellHeight(row) + mDividerWidth;
+        }
+
+        @Override
+        public Cell onCreateCell(ViewGroup parent, int cellType) {
+            return mExcelAdapter.onCreateCell(parent, cellType);
+        }
+
+        @Override
+        public void onBindCell(Cell cell, int cellPosition) {
+            mExcelAdapter.onBindCell(cell, cellPosition);
+        }
+
+        @Override
+        public int getParentCell(int position) {
+            return mExcelAdapter.getParentCell(position);
         }
     }
 }

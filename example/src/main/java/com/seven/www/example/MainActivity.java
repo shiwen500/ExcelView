@@ -3,6 +3,7 @@ package com.seven.www.example;
 import android.graphics.Color;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -49,20 +50,20 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public int getCellWidth(int column) {
-                return 100;
+                return 200;
             }
 
             @Override
             public int getCellHeight(int row) {
-                return 100;
+                return 200;
             }
 
             @Override
             public Cell onCreateCell(ViewGroup parent, int cellType) {
 
+                View item = LayoutInflater.from(MainActivity.this).inflate(R.layout.excel_item, parent, false);
 
-                TextView textView = new TextView(MainActivity.this);
-                return new Cell(textView);
+                return new Cell(item);
             }
 
             @Override
@@ -75,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
             public void onBindCell(Cell cell, int position) {
                 int x = CellPosition.getX(position);
                 int y = CellPosition.getY(position);
-                TextView t = (TextView) cell.getView();
+                TextView t = (TextView) cell.getView().findViewById(R.id.text1);
                 t.setText(y + " " + x);
 
                 t.setBackgroundColor(colors[(y + x) % colors.length]);
