@@ -27,11 +27,29 @@ public class ExcelView extends ViewGroup{
 
     private ExcelAdapter mAdapter;
 
+    /**
+     * Simple recycler of cell
+     */
     private CellRecycler mCellRecycler;
 
+    /**
+     * First visible row of the excel body, exclude the fixed top.
+     */
     private int mFirstVisibleRow;
+
+    /**
+     * Last visible row of the excel body.
+     */
     private int mLastVisibleRow;
+
+    /**
+     * First visible column of the excel body, exclude the fixed left
+     */
     private int mFirstVisibleColumn;
+
+    /**
+     * Last visible column of the excel body
+     */
     private int mLastVisibleColumn;
 
     private FlingRunnable mFlingRunnable;
@@ -43,8 +61,15 @@ public class ExcelView extends ViewGroup{
     private float mLastTouchX;
     private float mLastTouchY;
 
-    private int mFixedX = -1;
-    private int mFixedY = -1;
+    /**
+     * The fixed column, -1 mean no fixed column.
+     */
+    private int mFixedColumn = -1;
+
+    /**
+     * The fixed row, -1 mean no fixed row.
+     */
+    private int mFixedRow = -1;
 
     private boolean mNotifyChanged;
 
@@ -80,11 +105,11 @@ public class ExcelView extends ViewGroup{
 
         clearAllCell();
 
-        final int x = getMinFullScrollX();
-        final int y = getMinFullScrollY();
+        final int x = getMinBodyColumn();
+        final int y = getMinBodyRow();
 
-        _fillDown(x, y, getMinFullScrollTop(), getMinFullScrollLeft());
-        _fillRight(x, y, getMinFullScrollTop(),getMinFullScrollLeft());
+        _fillDown(x, y, getBodyTop(), getBodyLeft());
+        _fillRight(x, y, getBodyTop(),getBodyLeft());
 
         _fillTopLeft();
 
@@ -92,9 +117,9 @@ public class ExcelView extends ViewGroup{
         mFirstVisibleColumn = x;
 
         int lastVisableX = mFirstVisibleColumn;
-        int maxX = getMaxFullScrollX();
-        int boundWidth = getMaxFullScrollRight();
-        int right = mAdapter.getCellWidth(lastVisableX) + getMinFullScrollLeft();
+        int maxX = getMaxBodyColumn();
+        int boundWidth = getBodyRight();
+        int right = mAdapter.getCellWidth(lastVisableX) + getBodyLeft();
 
         while (right < boundWidth && lastVisableX < maxX) {
             lastVisableX++;
@@ -104,15 +129,21 @@ public class ExcelView extends ViewGroup{
         mLastVisibleColumn = lastVisableX;
     }
 
+    /**
+     * Clear all cell & the cache.
+     */
     private void clearAllCell() {
         mAllCells.clear();
         removeAllViews();
         mCellRecycler.clear();
     }
 
+    /**
+     * Fill top-left part.
+     */
     private void _fillTopLeft() {
-        final int maxX = getMinFullScrollX();
-        final int maxY = getMinFullScrollY();
+        final int maxX = getMinBodyColumn();
+        final int maxY = getMinBodyRow();
 
         int left = 0;
         int top = 0;
@@ -180,8 +211,8 @@ public class ExcelView extends ViewGroup{
     }
 
     public void setFixedXAndY(int fixedX, int fixedY) {
-        mFixedX = fixedX;
-        mFixedY = fixedY;
+        mFixedColumn = fixedX;
+        mFixedRow = fixedY;
 
         notifyChanged();
     }
@@ -258,8 +289,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillDown(int x, int y, int nextTop, int nextLeft) {
 
-        int yEnd = getMaxFullScrollBottom(); // ignore padding
-        int maxY = getMaxFullScrollY();
+        int yEnd = getBodyBottom(); // ignore padding
+        int maxY = getMaxBodyRow();
 
         while (y <= maxY && nextTop < yEnd) {
 
@@ -280,8 +311,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillRight(int x, int y, int top, int left) {
 
-        int xEnd = getMaxFullScrollRight();
-        int maxX = getMaxFullScrollX();
+        int xEnd = getBodyRight();
+        int maxX = getMaxBodyColumn();
 
         while (x <= maxX && left < xEnd) {
 
@@ -297,8 +328,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillUp(int x, int y, int bottom, int left) {
 
-        int yStart = getMinFullScrollTop(); // ignore padding
-        int minY = getMinFullScrollY();
+        int yStart = getBodyTop(); // ignore padding
+        int minY = getMinBodyRow();
 
         while (y >= minY && bottom > yStart) {
 
@@ -314,8 +345,8 @@ public class ExcelView extends ViewGroup{
 
     private void _fillLeft(int x, int y, int top, int right) {
 
-        int xStart = getMinFullScrollLeft();
-        int minX = getMinFullScrollX();
+        int xStart = getBodyLeft();
+        int minX = getMinBodyColumn();
 
         while (x >= minX && right > xStart) {
 
@@ -331,8 +362,8 @@ public class ExcelView extends ViewGroup{
 
     private void _makeRow(int startX, int y, int top, int nextLeft) {
 
-        int xEnd = getMaxFullScrollRight(); // ignore padding.
-        int maxX = getMaxFullScrollX();
+        int xEnd = getBodyRight(); // ignore padding.
+        int maxX = getMaxBodyColumn();
 
         while (startX <= maxX && nextLeft < xEnd) {
 
@@ -343,7 +374,7 @@ public class ExcelView extends ViewGroup{
         }
 
         nextLeft = 0;
-        for (int x = 0; x < getMinFullScrollX(); ++x) {
+        for (int x = 0; x < getMinBodyColumn(); ++x) {
             _makeAndAddCell(x, y, nextLeft, top);
 
             nextLeft += mAdapter.getCellWidth(x);
@@ -351,8 +382,8 @@ public class ExcelView extends ViewGroup{
     }
 
     private void _makeColumn(int x, int startY, int top, int left) {
-        int yEnd = getMaxFullScrollBottom();
-        int maxY = getMaxFullScrollY();
+        int yEnd = getBodyBottom();
+        int maxY = getMaxBodyRow();
 
         while (startY <= maxY && top < yEnd) {
 
@@ -363,7 +394,7 @@ public class ExcelView extends ViewGroup{
         }
 
         top = 0;
-        for (int y = 0; y < getMinFullScrollY(); ++y) {
+        for (int y = 0; y < getMinBodyRow(); ++y) {
 
             _makeAndAddCell(x, y, left, top);
             top += mAdapter.getCellHeight(y);
@@ -527,16 +558,22 @@ public class ExcelView extends ViewGroup{
         recycle(dx, dy);
     }
 
+    /**
+     * Dry run scroll by dx
+     *
+     * @param dx expect scroll value
+     * @return actual value should scroll
+     */
     private int attemptScrollX(int dx) {
         if (dx < 0) {
             int right = getRight(mLastVisibleColumn);
 
             int targetLastVisibleColumn = mLastVisibleColumn;
-            final int maxColumn = getMaxFullScrollX();
+            final int maxColumn = getMaxBodyColumn();
 
             int targetRight = right + dx;
 
-            final int maxRight = getMaxFullScrollRight();
+            final int maxRight = getBodyRight();
 
             while (targetRight < maxRight && targetLastVisibleColumn < maxColumn) {
                 targetLastVisibleColumn++;
@@ -553,11 +590,11 @@ public class ExcelView extends ViewGroup{
 
             int left = getLeft(mFirstVisibleColumn);
             int targetFirstVisibleColumn = mFirstVisibleColumn;
-            final int minColumn = getMinFullScrollX();
+            final int minColumn = getMinBodyColumn();
 
             int targetLeft = left + dx;
 
-            final int minLeft = getMinFullScrollLeft();
+            final int minLeft = getBodyLeft();
 
             while (targetLeft > minLeft && targetFirstVisibleColumn > minColumn) {
                 targetFirstVisibleColumn--;
@@ -576,13 +613,19 @@ public class ExcelView extends ViewGroup{
         return dx;
     }
 
+    /**
+     * Dry run scroll by dy
+     *
+     * @param dy expect scroll value
+     * @return actual value should scroll
+     */
     private int attemptScrollY(int dy) {
         if (dy < 0) {
             int bottom = getBottom(mLastVisibleRow);
             int targetLastVisibleRow = mLastVisibleRow;
-            final int maxRow = getMaxFullScrollY();
+            final int maxRow = getMaxBodyRow();
             int targetBottom = bottom + dy;
-            final int maxY = getMaxFullScrollBottom();
+            final int maxY = getBodyBottom();
             while (targetBottom < maxY && targetLastVisibleRow < maxRow) {
                 targetLastVisibleRow++;
                 targetBottom += mAdapter.getCellHeight(targetLastVisibleRow);
@@ -595,9 +638,9 @@ public class ExcelView extends ViewGroup{
         } else if (dy > 0) {
             int top = getTop(mFirstVisibleRow);
             int targetFirstVisibleRow = mFirstVisibleRow;
-            final int minRow = getMinFullScrollY();
+            final int minRow = getMinBodyRow();
             int targetTop = top + dy;
-            final int minY = getMinFullScrollTop();
+            final int minY = getBodyTop();
             while (targetTop > minY && targetFirstVisibleRow > minRow) {
                 targetFirstVisibleRow--;
                 targetTop -= mAdapter.getCellHeight(targetFirstVisibleRow);
@@ -691,14 +734,15 @@ public class ExcelView extends ViewGroup{
             final int y = cell.getRow();
             final View view = cell.getView();
 
-            if (x >= getMinFullScrollX() && x <= getMaxFullScrollX() &&
-                    y >= getMinFullScrollY() && y <= getMaxFullScrollY()) {
+            if (x >= getMinBodyColumn() && x <= getMaxBodyColumn() &&
+                    y >= getMinBodyRow() && y <= getMaxBodyRow()) {
                 view.offsetLeftAndRight(dx);
                 view.offsetTopAndBottom(dy);
-            } else if (x < getMinFullScrollX() && y < getMinFullScrollY()) {
-                // no move
+                // x & y scroll
+            } else if (x < getMinBodyColumn() && y < getMinBodyRow()) {
+                // don't move
             } else {
-                if (x >= getMinFullScrollX()) {
+                if (x >= getMinBodyColumn()) {
                     // x scroll
                     view.offsetLeftAndRight(dx);
                 } else {
@@ -717,25 +761,25 @@ public class ExcelView extends ViewGroup{
         final int x = (int) child.getTag(R.id.cell_x);
         final int y = (int) child.getTag(R.id.cell_y);
 
-        final int minScrollX = getMinFullScrollX();
-        final int maxScrollX = getMaxFullScrollX();
-        final int minScrollY = getMinFullScrollY();
-        final int maxScrollY = getMaxFullScrollY();
+        final int minScrollX = getMinBodyColumn();
+        final int maxScrollX = getMaxBodyColumn();
+        final int minScrollY = getMinBodyRow();
+        final int maxScrollY = getMaxBodyRow();
 
         if (x >= minScrollX && x <= maxScrollX &&
                 y >= minScrollY && y <= maxScrollY) {
-            Rect rect = new Rect(getMinFullScrollLeft(), getMinFullScrollTop(),
-                    getMaxFullScrollRight(), getMaxFullScrollBottom());
+            Rect rect = new Rect(getBodyLeft(), getBodyTop(),
+                    getBodyRight(), getBodyBottom());
             canvas.clipRect(rect);
         } else if (x < minScrollX && y < minScrollY) {
-            Rect rect = new Rect(0, 0, getMinFullScrollLeft(), getMinFullScrollTop());
+            Rect rect = new Rect(0, 0, getBodyLeft(), getBodyTop());
             canvas.clipRect(rect);
         } else {
             if (x >= minScrollX) {
-                Rect rect = new Rect(getMinFullScrollLeft(), 0, getMaxFullScrollRight(), getMinFullScrollTop());
+                Rect rect = new Rect(getBodyLeft(), 0, getBodyRight(), getBodyTop());
                 canvas.clipRect(rect);
             } else {
-                Rect rect = new Rect(0, getMinFullScrollTop(), getMinFullScrollLeft(), getMaxFullScrollBottom());
+                Rect rect = new Rect(0, getBodyTop(), getBodyLeft(), getBodyBottom());
 
                 canvas.clipRect(rect);
             }
@@ -765,9 +809,9 @@ public class ExcelView extends ViewGroup{
     private void recycleTop() {
 
         int y = mFirstVisibleRow;
-        int maxY = getMaxFullScrollY();
+        int maxY = getMaxBodyRow();
 
-        int minTop = getMinFullScrollTop();
+        int minTop = getBodyTop();
 
         int bottom = getBottom(y);
         while (y <= maxY && bottom <= minTop) {
@@ -783,8 +827,8 @@ public class ExcelView extends ViewGroup{
     private void recycleLeft() {
 
         int x = mFirstVisibleColumn;
-        int maxX = getMaxFullScrollX();
-        int minLeft = getMinFullScrollLeft();
+        int maxX = getMaxBodyColumn();
+        int minLeft = getBodyLeft();
 
         int right = getRight(x);
 
@@ -802,8 +846,8 @@ public class ExcelView extends ViewGroup{
     private void recycleBottom() {
 
         int y = mLastVisibleRow;
-        int minY = getMinFullScrollY();
-        int maxBottom = getMaxFullScrollBottom();
+        int minY = getMinBodyRow();
+        int maxBottom = getBodyBottom();
 
         int top = getTop(y);
         while (y >= minY && top >= maxBottom) {
@@ -820,8 +864,8 @@ public class ExcelView extends ViewGroup{
     private void recycleRight() {
 
         int x = mLastVisibleColumn;
-        int minX = getMinFullScrollX();
-        int maxRight = getMaxFullScrollRight();
+        int minX = getMinBodyColumn();
+        int maxRight = getBodyRight();
 
         int left = getLeft(x);
 
@@ -843,7 +887,7 @@ public class ExcelView extends ViewGroup{
             removeAndRecycleCell(c, row);
         }
 
-        for (int c = 0; c < getMinFullScrollX(); ++c) {
+        for (int c = 0; c < getMinBodyColumn(); ++c) {
             removeAndRecycleCell(c, row);
         }
     }
@@ -865,10 +909,10 @@ public class ExcelView extends ViewGroup{
             int top = cellView.getTop();
             int bottom = cellView.getBottom();
 
-            if (left >= getMaxFullScrollRight() ||
-                    right <= getMinFullScrollLeft() ||
-                    top >= getMaxFullScrollBottom() ||
-                    bottom <= getMinFullScrollTop()) {
+            if (left >= getBodyRight() ||
+                    right <= getBodyLeft() ||
+                    top >= getBodyBottom() ||
+                    bottom <= getBodyTop()) {
                 shouldRemove = true;
             }
         } else {
@@ -895,48 +939,48 @@ public class ExcelView extends ViewGroup{
             removeAndRecycleCell(column, r);
         }
 
-        for (int r = 0; r < getMinFullScrollY(); ++r) {
+        for (int r = 0; r < getMinBodyRow(); ++r) {
             removeAndRecycleCell(column, r);
         }
     }
 
-    private int getMinFullScrollX() {
-        return mFixedX + 1;
+    private int getMinBodyColumn() {
+        return mFixedColumn + 1;
     }
 
-    private int getMinFullScrollY() {
-        return mFixedY + 1;
+    private int getMinBodyRow() {
+        return mFixedRow + 1;
     }
 
-    private int getMaxFullScrollX() {
+    private int getMaxBodyColumn() {
         return mAdapter.getColumnCount() - 1;
     }
 
-    private int getMaxFullScrollY() {
+    private int getMaxBodyRow() {
         return mAdapter.getRowCount() - 1;
     }
 
-    private int getMinFullScrollLeft() {
+    private int getBodyLeft() {
         int ret = 0;
-        for (int i = 0; i <= mFixedX; ++i) {
+        for (int i = 0; i <= mFixedColumn; ++i) {
             ret += mAdapter.getCellWidth(i);
         }
         return ret;
     }
 
-    private int getMinFullScrollTop() {
+    private int getBodyTop() {
         int ret = 0;
-        for (int i = 0; i <= mFixedY; ++i) {
+        for (int i = 0; i <= mFixedRow; ++i) {
             ret += mAdapter.getCellHeight(i);
         }
         return ret;
     }
 
-    private int getMaxFullScrollRight() {
+    private int getBodyRight() {
         return getWidth();
     }
 
-    private int getMaxFullScrollBottom() {
+    private int getBodyBottom() {
         return getHeight();
     }
 

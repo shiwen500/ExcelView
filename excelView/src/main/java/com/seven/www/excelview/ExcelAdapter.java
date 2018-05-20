@@ -50,16 +50,52 @@ public interface ExcelAdapter {
      */
     int getCellTypeCount();
 
+    /**
+     * The width in pixel of the cell
+     *
+     * @param column the column index, from 0 on
+     * @return the width value in pixel
+     */
     int getCellWidth(int column);
 
+    /**
+     * The height in pixel of the row
+     *
+     * @param row the row index , from 0 on
+     * @return the width value in pixel
+     */
     int getCellHeight(int row);
 
+    /**
+     * Create a cell by the type
+     *
+     * @param parent the cell's parent view, should be ExcelView
+     * @param cellType the cell's type
+     * @return The created cell
+     */
     Cell onCreateCell(ViewGroup parent, int cellType);
+
+    /**
+     * Initialize the cell in the given position
+     *
+     * @param cell the cell should be initialized
+     * @param cellPosition the given position
+     */
     void onBindCell(Cell cell, int cellPosition);
 
-
+    /**
+     * Get the parent cell's pos of the given pos. A cell which had a parent cell
+     * (Didn't return -1) should be empty.
+     *
+     * @param position the given position of the empty cell
+     * @return the parent cell's pos
+     */
     int getParentCell(int position);
 
+    /**
+     * We use a 32 bits integer express a cell's pos, high 16 bits express column and
+     * low 16 bits express row.
+     */
     class CellPosition {
 
         private CellPosition(){}
@@ -82,17 +118,23 @@ public interface ExcelAdapter {
     class Cell {
 
         /**
-         * The coordinate of this cell.
+         * The position of this cell.
          */
         private int mCellPosition;
 
         /**
-         * This cell's view, nullable if it is subcell of others.
+         * This cell's view, null if it is subcell of others.
          */
         private View mView;
 
+        /**
+         * Greater than 1 if the cell is other cell's parent cell.
+         */
         private int mMergeWidth;
 
+        /**
+         * Greater than 1 if the cell is other cell's parent cell.
+         */
         private int mMergeHeight;
 
         public View getView() {
@@ -119,11 +161,7 @@ public interface ExcelAdapter {
             return mMergeWidth == 0 || mMergeHeight == 0;
         }
 
-        public void recycle() {
-            mCellPosition = 0;
-        }
-
-        public void setCellPosition(int position) {
+        /*package*/ void setCellPosition(int position) {
             mCellPosition = position;
         }
 
@@ -131,22 +169,14 @@ public interface ExcelAdapter {
             return mCellPosition;
         }
 
-        public Cell(View view, int position, int mergeWidth, int mergeHeight) {
+        public Cell(View view) {
+            this(view, 1, 1);
+        }
+
+        public Cell(View view, int mergeWidth, int mergeHeight) {
             mView = view;
-            mCellPosition = position;
-            mMergeWidth = mergeWidth;
             mMergeHeight = mergeHeight;
-        }
-
-        public Cell(View view, int position) {
-            mView = view;
-            mCellPosition = position;
-            mMergeWidth = 1;
-            mMergeHeight = 1;
-        }
-
-        public static Cell createEmptyCell(int position) {
-            return new Cell(null, position, 0, 0);
+            mMergeWidth = mergeWidth;
         }
     }
 }

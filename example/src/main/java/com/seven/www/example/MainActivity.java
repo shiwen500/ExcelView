@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
 
 
                 TextView textView = new TextView(MainActivity.this);
-                return new Cell(textView, -1, 1, 1);
+                return new Cell(textView);
             }
 
             @Override
