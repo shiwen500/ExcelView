@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <objectAnimator android:duration="10000"
+        android:propertyName="translationX"
+        android:valueFrom="100dp"
+        android:valueTo="0" />
+</set>
