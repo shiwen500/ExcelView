@@ -20,10 +20,12 @@ import android.widget.ListView;
 public class MainListFragment extends Fragment {
 
     private final String[] mLists = new String[]{
-            "Simple Full Scroll Table",
+        "Simple Full Scroll Table",
+        "Simple Fixed LeftTop Table",
     };
 
     private static final int INDEX_SIMPLE_FULL_SCROLL_TABLE = 0;
+    private static final int INDEX_SIMPLE_FIXED_LEFTTOP_TABLE = 1;
     public static final String TITLE_SUB_FRAGMENT = "title_sub_fragment";
 
     private ListView mListView;
@@ -58,11 +60,15 @@ public class MainListFragment extends Fragment {
             switch (position) {
                 case INDEX_SIMPLE_FULL_SCROLL_TABLE:
                     fm.beginTransaction()
-                            //.setCustomAnimations(android.R.anim.slide_in_left, android.R.anim.slide_out_right)
-                            //.setCustomAnimations(R.animator.animator_fragment_enter, R.animator.animator_fragment_enter, R.animator.animator_fragment_popenter, R.animator.animator_fragment_popexit)
                             .replace(R.id.fl_main, SimpleFullScrollTableFragment.newInstance(title))
                             .addToBackStack(null)
                             .commit();
+                    break;
+                case INDEX_SIMPLE_FIXED_LEFTTOP_TABLE:
+                    fm.beginTransaction()
+                        .replace(R.id.fl_main, SimpleFixedLeftTopTable.newInstance(title))
+                        .addToBackStack(null)
+                        .commit();
                     break;
             }
         }

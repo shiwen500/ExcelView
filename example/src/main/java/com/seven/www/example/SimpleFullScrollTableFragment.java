@@ -19,7 +19,7 @@ import com.seven.www.excelview.ExcelView;
  * Created by chenshiwen on 18-5-31.
  */
 
-public class SimpleFullScrollTableFragment extends Fragment {
+public class SimpleFullScrollTableFragment extends BaseFragment {
 
     private static final int[] COLORS = {Color.BLACK, Color.RED, Color.BLUE, Color.GREEN};
 
@@ -38,11 +38,12 @@ public class SimpleFullScrollTableFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
-        getActivity().setTitle(getArguments().getString(MainListFragment.TITLE_SUB_FRAGMENT));
-        View rootView = inflater.inflate(R.layout.fragment_simple_full_scroll_table, container, false);
-        mExcelView = (ExcelView) rootView.findViewById(R.id.ev_simple_full_scroll_table);
-        mExcelView.setExcelAdapter(new SimpleFullScrollTableAdapter(getActivity()));
-        return rootView;
+        return super.onCreateView(inflater, container, savedInstanceState);
+    }
+
+    @Override
+    public ExcelAdapter onCreateAdapter() {
+        return new SimpleFullScrollTableAdapter(getActivity());
     }
 
     public static class SimpleFullScrollTableAdapter implements ExcelAdapter {

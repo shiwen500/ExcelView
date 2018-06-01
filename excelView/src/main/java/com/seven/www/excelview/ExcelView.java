@@ -97,8 +97,8 @@ public class ExcelView extends ViewGroup{
 
         mFlingRunnable = new FlingRunnable(getContext());
 
-        mDevider = new ColorDrawable(Color.YELLOW);
-        mDividerWidth = 10;
+        mDevider = new ColorDrawable(Color.parseColor("#cfe2f3"));
+        mDividerWidth = ViewUtil.dp2px(getResources(), 1.0f);
     }
 
 
@@ -234,15 +234,19 @@ public class ExcelView extends ViewGroup{
 
     private void removeCell(ExcelAdapter.Cell cell) {
         if (!cell.isEmpty()) {
-            removeView(cell.getView());
+            detachViewFromParent(cell.getView());
         }
         ExcelAdapter.Cell recycle = mAllCells.remove(cell.getPosition());
         mCellRecycler.addRecycledCell(recycle, mAdapter.getCellType(cell.getPosition()));
     }
 
-    private void addCell(ExcelAdapter.Cell cell) {
+    private void addCell(ExcelAdapter.Cell cell, boolean fromCache) {
         if (!cell.isEmpty()) {
-            addView(cell.getView());
+            if (fromCache) {
+                attachViewToParent(cell.getView(), -1, cell.getView().getLayoutParams());
+            } else {
+                addView(cell.getView());
+            }
         }
         mAllCells.put(cell.getPosition(), cell);
     }
@@ -496,7 +500,7 @@ public class ExcelView extends ViewGroup{
             }
         }
 
-        addCell(ret);
+        addCell(ret, inCache);
 
         return ret;
     }
