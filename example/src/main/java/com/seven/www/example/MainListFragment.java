@@ -22,10 +22,12 @@ public class MainListFragment extends Fragment {
     private final String[] mLists = new String[]{
         "Simple Full Scroll Table",
         "Simple Fixed LeftTop Table",
+        "Simple Picture Wall",
     };
 
     private static final int INDEX_SIMPLE_FULL_SCROLL_TABLE = 0;
     private static final int INDEX_SIMPLE_FIXED_LEFTTOP_TABLE = 1;
+    private static final int INDEX_SIMPLE_PICTURE_WALL = 2;
     public static final String TITLE_SUB_FRAGMENT = "title_sub_fragment";
 
     private ListView mListView;
@@ -67,6 +69,12 @@ public class MainListFragment extends Fragment {
                 case INDEX_SIMPLE_FIXED_LEFTTOP_TABLE:
                     fm.beginTransaction()
                         .replace(R.id.fl_main, SimpleFixedLeftTopTable.newInstance(title))
+                        .addToBackStack(null)
+                        .commit();
+                    break;
+                case INDEX_SIMPLE_PICTURE_WALL:
+                    fm.beginTransaction()
+                        .replace(R.id.fl_main, SimplePictureWallFragment.newInstance(title))
                         .addToBackStack(null)
                         .commit();
                     break;

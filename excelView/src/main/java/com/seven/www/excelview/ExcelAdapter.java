@@ -117,6 +117,10 @@ public interface ExcelAdapter {
 
     class Cell {
 
+        public static Cell empty() {
+            return new Cell(null, 0, 0);
+        }
+
         /**
          * The position of this cell.
          */
